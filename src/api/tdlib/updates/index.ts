@@ -2,7 +2,10 @@
  * TDLib 실시간 업데이트 이벤트 처리
  */
 import type { Socket } from 'socket.io-client';
-import type { ApiTypingStatus, OnApiUpdate } from '../../types';
+
+import type {
+  ApiTypingStatus, ApiUpdateAuthorizationStateType, OnApiUpdate,
+} from '../../types';
 
 import { DEBUG } from '../../../config';
 import { buildApiMessage } from '../converters';
@@ -12,20 +15,31 @@ const DEDUP_WINDOW = 5000;
 
 export function setupUpdates(onUpdate: OnApiUpdate, socket: Socket) {
   // Auth state 업데이트
-  socket.on('authState', (data: { state: string }) => {
+  socket.on('authState', (data: {
+    state: string;
+    qrCode?: { token: string; expires: number };
+  }) => {
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.log('[TDLib Updates] Auth state:', data.state);
     }
 
+    const authorizationState = data.state === 'authorizationStateWaitOtherDeviceConfirmation'
+      ? 'authorizationStateWaitQrCode'
+      : data.state === 'ready'
+        ? 'authorizationStateReady'
+        : data.state as ApiUpdateAuthorizationStateType;
+
+    onUpdate({
+      '@type': 'updateAuthorizationState',
+      authorizationState,
+      qrCode: data.qrCode,
+    });
+
     if (data.state === 'ready' || data.state === 'authorizationStateReady') {
       onUpdate({
         '@type': 'updateConnectionState',
         connectionState: 'connectionStateReady',
-      });
-      onUpdate({
-        '@type': 'updateAuthorizationState',
-        authorizationState: 'authorizationStateReady',
       });
       // sync.ts has a global state callback that triggers sync() automatically
       // when connectionState=ready AND auth.state=ready
