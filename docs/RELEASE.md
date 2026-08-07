@@ -4,16 +4,15 @@ The current release workflow builds the browser client and publishes a zip archi
 
 ## GitHub Settings
 
-Set these repository variables under Settings -> Secrets and variables -> Actions -> Variables:
+Set this repository variable under Settings -> Secrets and variables -> Actions -> Variables:
 
-- `PUBLISH_REPO`: release repository, for example `graypawn/telegram-web-relay-client`
 - `NODE_VERSION`: `22`
 
 Set this repository secret:
 
 - `GH_TOKEN`: token with permission to create releases and upload release assets to `PUBLISH_REPO`
 
-The workflow does not use a Gist, Tauri signing keys, or platform signing certificates.
+The workflow publishes to the current repository automatically using `github.repository`. It does not use a Gist, Tauri signing keys, or platform signing certificates.
 
 ## Release
 
