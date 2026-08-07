@@ -137,11 +137,12 @@ jobs:
           RELEASE_ID: ${{ needs.create-release.outputs.release-id }}
           ARCHIVE: ${{ steps.package.outputs.archive }}
         run: |
-          curl -sS -X POST \
+          RESPONSE=$(curl --fail-with-body -sS -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Content-Type: application/zip" \
-            --data-binary "@$archive" \
-            "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$archive"
+            --data-binary "@$ARCHIVE" \
+            "https://uploads.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets?name=$ARCHIVE")
+          echo "$RESPONSE" | jq -e '.browser_download_url' > /dev/null
 
   publish-release:
     runs-on: ubuntu-latest
