@@ -37,7 +37,8 @@ export function initSocket(): Promise<void> {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000,
-      withCredentials: false,
+      // Cloudflare Access authenticates the Socket.IO handshake with its session cookie.
+      withCredentials: true,
     });
 
     socket.on('connect', () => {

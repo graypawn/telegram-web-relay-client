@@ -42,7 +42,12 @@ export function initApi(onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
     });
     apiRequestsQueue.length = 0;
 
-    getSocket().emit('getAuthState');
+    const requestAuthState = () => getSocket().emit('getAuthState');
+    requestAuthState();
+    // Access proxies and reconnects can deliver the initial event before the
+    // client-side update listener is ready. Re-request it during startup.
+    setTimeout(requestAuthState, 250);
+    setTimeout(requestAuthState, 1000);
 
     // v2 Saved Messages 표시 복구: selectIsChatWithSelf 는 chatId === global.currentUserId
     // 비교만 한다. TDLib backend 의 init 흐름이 updateCurrentUser 를 emit 하지 않으면

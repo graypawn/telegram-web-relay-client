@@ -27,10 +27,10 @@ import Button from '../ui/Button';
 import Loading from '../ui/Loading';
 
 import blankUrl from '../../assets/blank.png';
+import QrCodeStyling from 'qr-code-styling';
 
 type StateProps = {
   auth: GlobalState['auth'];
-  connectionState: GlobalState['connectionState'];
   language?: string;
 };
 
@@ -39,17 +39,7 @@ const QR_SIZE = 280;
 const QR_PLANE_SIZE = 54;
 const QR_CODE_MUTATION_DURATION = 50; // The library is asynchronous and we need to wait for its mutation code
 
-let qrCodeStylingPromise: Promise<typeof import('qr-code-styling')> | undefined;
-
-function ensureQrCodeStyling() {
-  if (!qrCodeStylingPromise) {
-    qrCodeStylingPromise = import('qr-code-styling');
-  }
-  return qrCodeStylingPromise;
-}
-
 const AuthCode = ({
-  connectionState,
   auth,
   language,
 }: StateProps) => {
@@ -65,7 +55,6 @@ const AuthCode = ({
   const lang = useLang();
   const qrCodeRef = useRef<HTMLDivElement>();
 
-  const isConnected = connectionState === 'connectionStateReady';
   const continueText = useLangString('AuthContinueOnThisLanguage', suggestedLanguage);
   const [isLoading, markIsLoading, unmarkIsLoading] = useFlag();
   const [isQrMounted, markQrMounted, unmarkQrMounted] = useFlag();
@@ -74,7 +63,6 @@ const AuthCode = ({
   const hasActiveAccount = Object.values(accountsInfo).length > 0;
 
   const { result: qrCode } = useAsync(async () => {
-    const QrCodeStyling = (await ensureQrCodeStyling()).default;
     return new QrCodeStyling({
       width: QR_SIZE,
       height: QR_SIZE,
@@ -106,10 +94,6 @@ const AuthCode = ({
       };
     }
 
-    if (!isConnected) {
-      return undefined;
-    }
-
     const container = qrCodeRef.current!;
     const data = `${DATA_PREFIX}${authQrCode.token}`;
 
@@ -133,7 +117,7 @@ const AuthCode = ({
     }
 
     return undefined;
-  }, [isConnected, authQrCode, isQrMounted, qrCode]);
+  }, [authQrCode, isQrMounted, qrCode]);
 
   const handleBackNavigation = useLastCallback(() => {
     navigateBack();
@@ -222,13 +206,12 @@ const AuthCode = ({
 export default memo(withGlobal(
   (global): Complete<StateProps> => {
     const {
-      connectionState, auth,
+      auth,
     } = global;
 
     const { language } = selectSharedSettings(global);
 
     return {
-      connectionState,
       auth,
       language,
     };
