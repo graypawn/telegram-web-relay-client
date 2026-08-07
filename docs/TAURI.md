@@ -107,7 +107,7 @@ Keep them at minimum. For complex logic, consider implementing own command in Ru
 
 Learn more about [capabilities](https://tauri.app/reference/acl/capability/) and [how to configure them for different windows or platforms](https://tauri.app/learn/security/capabilities-for-windows-and-platforms/).
 
-## Autoupdates
+## Tauri Autoupdates (legacy)
 
 The application's autoupdate cycle is managed using the [Updater](https://tauri.app/plugin/updater/) plugin.
 
@@ -117,7 +117,7 @@ The frontend application polls for updates every 10 minutes and displays an "Upd
 
 **Important**: In development mode and for local builds, autoupdates are not available. Keys and other information are dynamically added within the GitHub action during the `Define Tauri configuration overrides` step.
 
-## GitHub workflow for release
+## Tauri Workflow Reference (Not Used By Current Release Workflow)
 
 The build and release process for a Tauri application is managed using a GitHub workflow that leverages the official [Tauri Action](https://github.com/tauri-apps/tauri-action).
 
