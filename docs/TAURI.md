@@ -130,7 +130,8 @@ The build and release process for a Tauri application is managed using a GitHub 
 | `PUBLISH_REPO` | `{OWNER}/{REPO}` repository where published releases with artifacts will be pushed.                                           |
 | `NODE_VERSION`       | Node.js version on which NPM modules installation and Tauri build should happen.                                              |
 | `BASE_URL`     | Remote URL from which application content will be loaded |
-| `UPDATER_URL`  | URL to the published `latest.json` asset, usually `https://github.com/{OWNER}/{REPO}/releases/latest/download/latest.json`. |
+
+The workflow derives `UPDATER_URL` from `PUBLISH_REPO` as `https://github.com/{OWNER}/{REPO}/releases/latest/download/latest.json`.
 
 ---
 
