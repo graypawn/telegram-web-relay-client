@@ -8,11 +8,7 @@ Set this repository variable under Settings -> Secrets and variables -> Actions 
 
 - `NODE_VERSION`: `22`
 
-Set this repository secret:
-
-- `GH_TOKEN`: token with permission to create releases and upload release assets to `PUBLISH_REPO`
-
-The workflow publishes to the current repository automatically using `github.repository`. It does not use a Gist, Tauri signing keys, or platform signing certificates.
+The workflow publishes to the current repository automatically using `github.repository` and the built-in `GITHUB_TOKEN`. It does not use a Gist, Tauri signing keys, or platform signing certificates.
 
 ## Release
 

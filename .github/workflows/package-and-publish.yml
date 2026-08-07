@@ -11,7 +11,7 @@ permissions:
 
 env:
   PUBLISH_REPO: ${{ github.repository }}
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   get-version:
