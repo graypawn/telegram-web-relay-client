@@ -18,15 +18,14 @@ on:
         type: boolean
   push:
     branches:
-      - master
+      - main
 
 env:
-  IS_ON_MASTER: ${{ github.ref == 'refs/heads/master' }}
-  SHOULD_PUBLISH: ${{ github.ref == 'refs/heads/master' && vars.PUBLISH_REPO || '' }}
+  IS_ON_MAIN: ${{ github.ref == 'refs/heads/main' }}
+  SHOULD_PUBLISH: ${{ github.ref == 'refs/heads/main' && vars.PUBLISH_REPO || '' }}
   PUBLISH_REPO: ${{ vars.PUBLISH_REPO }}
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
-  UPDATER_GIST_URL: ${{ secrets.UPDATER_GIST_URL }}
-  UPDATER_GIST_ID: ${{ secrets.UPDATER_GIST_ID }}
+  UPDATER_URL: https://github.com/${{ vars.PUBLISH_REPO }}/releases/latest/download/latest.json
 
 jobs:
   get-version:
@@ -65,9 +64,9 @@ jobs:
           PACKAGE_VERSION: ${{ needs.get-version.outputs.package-version }}
           TAG_NAME: ${{ needs.get-version.outputs.tag-name }}
         run: |
-          # For non-master branches or when publishing is disabled, always continue
+          # For non-main branches or when publishing is disabled, always continue
           if [ -z "$SHOULD_PUBLISH" ]; then
-            echo "🚧 Publishing disabled (non-master branch or PUBLISH_REPO not set)"
+            echo "🚧 Publishing disabled (non-main branch or PUBLISH_REPO not set)"
             echo "should-skip=false" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -313,10 +312,3 @@ jobs:
       - name: Publish release
         run: |
           curl -X PATCH -H "Authorization: Bearer $GH_TOKEN" -d '{"draft": false}' "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID"
-
-      - name: Update Gist with JSON
-        run: |
-          ASSET_ID=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/$RELEASE_ID/assets" | jq -r '.[] | select(.name == "latest.json") | .id')
-          JSON_CONTENT=$(curl -sSL -H "Accept: application/octet-stream" -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/$PUBLISH_REPO/releases/assets/$ASSET_ID")
-          GIST_CONTENT=$(jq -n --arg json "$JSON_CONTENT" '{"files":{"updater.json":{"content":$json}}}')
-          curl -X PATCH -H "Authorization: token $GH_TOKEN" -d "$GIST_CONTENT" "https://api.github.com/gists/$UPDATER_GIST_ID"

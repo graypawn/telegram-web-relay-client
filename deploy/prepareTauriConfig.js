@@ -15,7 +15,7 @@ export default function prepareTauriConfig() {
     config.plugins = {
       updater: {
         dialog: false,
-        endpoints: [process.env.UPDATER_GIST_URL],
+        endpoints: [process.env.UPDATER_URL],
         pubkey: process.env.UPDATER_PUBLIC_KEY,
       },
     };

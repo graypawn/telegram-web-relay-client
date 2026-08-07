@@ -111,7 +111,7 @@ Learn more about [capabilities](https://tauri.app/reference/acl/capability/) and
 
 The application's autoupdate cycle is managed using the [Updater](https://tauri.app/plugin/updater/) plugin.
 
-Each time the "Package & Publish" GitHub workflow runs successfully, a new release is created in the publish repository. This release includes build artifacts and a `latest.json` file with a [JSON file](https://tauri.app/plugin/updater/#static-json-file) containing download links for each platform and signature tokens.
+Each time the "Package & Publish" GitHub workflow runs successfully, a new release is created in the publish repository. This release includes build artifacts and a `latest.json` file with a [JSON file](https://tauri.app/plugin/updater/#static-json-file) containing download links for each platform and signature tokens. The updater reads it from the latest GitHub Release asset.
 
 The frontend application polls for updates every 10 minutes and displays an "Update" button if an update is available.
 
@@ -130,6 +130,7 @@ The build and release process for a Tauri application is managed using a GitHub 
 | `PUBLISH_REPO` | `{OWNER}/{REPO}` repository where published releases with artifacts will be pushed.                                           |
 | `NODE_VERSION`       | Node.js version on which NPM modules installation and Tauri build should happen.                                              |
 | `BASE_URL`     | Remote URL from which application content will be loaded |
+| `UPDATER_URL`  | URL to the published `latest.json` asset, usually `https://github.com/{OWNER}/{REPO}/releases/latest/download/latest.json`. |
 
 ---
 
@@ -145,8 +146,6 @@ The build and release process for a Tauri application is managed using a GitHub 
 
 | **Secret Name**       | **Description**                                                                                                         |
 |-----------------------|-------------------------------------------------------------------------------------------------------------------------|
-| `UPDATER_GIST_URL`    | URL to GitHub gist (e.g., `https://gist.githubusercontent.com/GitHubUser/GistID/raw/updater.json`). Ensure `GH_TOKEN` has read/write access.       |
-| `UPDATER_GIST_ID`     | GitHub gist ID (`GistID` from `UPDATER_GIST_URL` example).                                                              |
 | `UPDATER_PUBLIC_KEY`  | Public key to validate artifacts before installation. [More info](https://tauri.app/plugin/updater/#signing-updates).   |
 | `UPDATER_PRIVATE_KEY` | Private key used to sign installer files (generated with the same command as public key).                               |
 
