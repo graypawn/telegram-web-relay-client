@@ -6,6 +6,7 @@ import { ApiMessageEntityTypes } from '../../api/types';
 
 import { IS_TAURI } from '../../util/browser/globalEnvironment';
 import { ensureProtocol, getUnicodeUrl, isMixedScriptUrl } from '../../util/browser/url';
+import { MouseButton } from '../../util/browser/windowEnvironment';
 import buildClassName from '../../util/buildClassName';
 
 import useLastCallback from '../../hooks/useLastCallback';
@@ -43,13 +44,16 @@ const SafeLink = ({
 
   const handleClick = useLastCallback((e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
     if (!url) return true;
+    if (e.button !== MouseButton.Main && e.button !== MouseButton.Auxiliary) return true;
 
     e.preventDefault();
 
+    const shouldOpenInNewTab = e.button === MouseButton.Auxiliary || e.ctrlKey || e.metaKey || e.shiftKey;
     const isTrustedLink = isRegularLink && !isMixedScriptUrl(url);
     openUrl({
       url,
       shouldSkipModal: shouldSkipModal || isTrustedLink,
+      ignoreDeepLinks: shouldOpenInNewTab,
       ...(chatId && messageId && {
         linkContext: { type: 'message', chatId, threadId, messageId },
       }),
@@ -75,6 +79,7 @@ const SafeLink = ({
       rel="noopener noreferrer"
       className={classNames}
       onClick={handleClick}
+      onAuxClick={handleClick}
       dir={isRtl ? 'rtl' : 'auto'}
       data-entity-type={entityType}
     >

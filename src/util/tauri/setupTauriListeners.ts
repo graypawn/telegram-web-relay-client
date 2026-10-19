@@ -52,6 +52,8 @@ export default function setupTauriListeners() {
   };
 
   function handleClick(event: MouseEvent) {
+    if (event.defaultPrevented) return;
+
     const target = event.target as HTMLElement | null;
     const anchor = target?.closest<HTMLAnchorElement>('a[href]');
 
@@ -69,8 +71,9 @@ export default function setupTauriListeners() {
     }
   }
 
-  document.addEventListener('click', handleClick);
-  document.addEventListener('auxclick', handleClick);
+  // Teact의 위임 핸들러 뒤에 실행해 확인이 필요한 링크를 먼저 처리한다.
+  window.addEventListener('click', handleClick);
+  window.addEventListener('auxclick', handleClick);
 }
 
 async function openLink(url: string | URL) {

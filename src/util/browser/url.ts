@@ -3,6 +3,7 @@ import convertPunycode from '../../lib/punycode';
 
 const PROTOCOL_WHITELIST = new Set(['http:', 'https:', 'tg:', 'ton:', 'mailto:', 'tel:']);
 const FALLBACK_PREFIX = 'https://';
+const PROTOCOL_PREFIX_PATTERN = /^[a-z][a-z\d+.-]*:/i;
 
 export function ensureProtocol(url: string) {
   try {
@@ -41,11 +42,26 @@ export function getUnicodeUrl(url: string) {
 }
 
 export function isMixedScriptUrl(url: string): boolean {
-  let domain;
+  const protocol = url.match(PROTOCOL_PREFIX_PATTERN)?.[0].toLowerCase();
+  const urlToParse = protocol && PROTOCOL_WHITELIST.has(protocol) ? url : ensureProtocol(url);
+
+  let parsedUrl: URL;
   try {
-    domain = convertPunycode(new URL(ensureProtocol(url)).hostname);
+    parsedUrl = new URL(urlToParse);
   } catch (e) {
     return true; // If URL is invalid, treat it as mixed script
+  }
+
+  // `trusted.example@evil.example`처럼 표시 대상과 실제 호스트가 다른 링크는 항상 확인한다.
+  if (parsedUrl.username || parsedUrl.password) {
+    return true;
+  }
+
+  let domain;
+  try {
+    domain = convertPunycode(parsedUrl.hostname);
+  } catch (e) {
+    return true;
   }
 
   let hasLatin = false;
