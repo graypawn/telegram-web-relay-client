@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunktelegram_web_relay_client=self.webpackChunktelegram_web_relay_client||[]).push([[8967],{11348(e,a,l){l.d(a,{open:()=>t});var n=l(55962);async function t(e,a){await(0,n.invoke)("plugin:shell|open",{path:e,with:a})}}}]);
+//# sourceMappingURL=8967.e7c830842e24f4322cb7.js.map

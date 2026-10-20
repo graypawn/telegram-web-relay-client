@@ -1,0 +1,2 @@
+(self.webpackChunktelegram_web_relay_client=self.webpackChunktelegram_web_relay_client||[]).push([[8233],{99040(e){e.exports=function(e){return{name:"Plain text",aliases:["text","txt"],disableAutodetect:!0}}}}]);
+//# sourceMappingURL=8233.32aaa0d045b0c3c5588c.js.map

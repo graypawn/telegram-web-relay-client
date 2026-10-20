@@ -1,0 +1,2 @@
+(self.webpackChunktelegram_web_relay_client=self.webpackChunktelegram_web_relay_client||[]).push([[6058],{16673(e){e.exports=function(e){return{name:"Node REPL",contains:[{className:"meta.prompt",starts:{end:/ |$/,starts:{end:"$",subLanguage:"javascript"}},variants:[{begin:/^>(?=[ ]|$)/},{begin:/^\.\.\.(?=[ ]|$)/}]}]}}}}]);
+//# sourceMappingURL=6058.a360b8eea856eea4edfb.js.map

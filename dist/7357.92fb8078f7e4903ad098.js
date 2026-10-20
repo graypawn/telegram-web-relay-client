@@ -1,0 +1,2 @@
+(self.webpackChunktelegram_web_relay_client=self.webpackChunktelegram_web_relay_client||[]).push([[7357],{54356(e){e.exports=function(e){return{name:"ERB",subLanguage:"xml",contains:[e.COMMENT("<%#","%>"),{begin:"<%[%=-]?",end:"[%-]?%>",subLanguage:"ruby",excludeBegin:!0,excludeEnd:!0}]}}}}]);
+//# sourceMappingURL=7357.92fb8078f7e4903ad098.js.map

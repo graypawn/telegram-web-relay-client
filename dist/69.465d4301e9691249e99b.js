@@ -1,0 +1,2 @@
+(self.webpackChunktelegram_web_relay_client=self.webpackChunktelegram_web_relay_client||[]).push([[69],{67172(e){e.exports=function(e){return{name:"LDIF",contains:[{className:"attribute",match:"^dn(?=:)",relevance:10},{className:"attribute",match:"^\\w+(?=:)"},{className:"literal",match:"^-"},e.HASH_COMMENT_MODE]}}}}]);
+//# sourceMappingURL=69.465d4301e9691249e99b.js.map
