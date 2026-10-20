@@ -40,17 +40,14 @@ const {
 
 const CSP = `
   default-src 'self';
-  connect-src 'self' wss://*.web.telegram.org blob: http: https: ${APP_ENV === 'development' ? 'wss: ipc:' : ''};
-  script-src 'self' 'wasm-unsafe-eval' https://t.me/_websync_ https://telegram.me/_websync_;
+  connect-src *;
+  script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://t.me https://telegram.me;
   style-src 'self' 'unsafe-inline';
-  img-src 'self' data: blob: https://ss3.4sqi.net/img/categories_v2/;
-  media-src 'self' blob: data:;
+  img-src * data: blob:;
+  media-src * blob: data:;
   object-src 'none';
-  frame-src http: https:
-    bitkeep: bnc: bybitapp: echooo: imtokenv2: mytonwallet-tc:
-    nicegram-tc: safepal-tc: tonkeeper-pro-tc: tonkeeper-tc:;
-  base-uri 'none';
-  form-action 'none';`
+  frame-src *;
+  base-uri 'none';`
   .replace(/\s+/g, ' ').trim();
 
 const CHANGELOG_PATH = path.resolve(__dirname, 'src/versionNotification.txt');

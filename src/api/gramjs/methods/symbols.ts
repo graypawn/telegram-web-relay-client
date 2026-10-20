@@ -178,7 +178,7 @@ export async function fetchStickers(
   { stickerSetInfo }:
   { stickerSetInfo: ApiStickerSetInfo },
 ) {
-  if ('isMissing' in stickerSetInfo) return undefined;
+  if (!stickerSetInfo || 'isMissing' in stickerSetInfo) return undefined;
   const inputStickerSet = 'id' in stickerSetInfo
     ? buildInputStickerSet(stickerSetInfo.id, stickerSetInfo.accessHash)
     : buildInputStickerSetShortName(stickerSetInfo.shortName);

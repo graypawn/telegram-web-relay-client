@@ -244,7 +244,14 @@ addActionHandler('openChat', (global, actions, payload): ActionReturnType => {
     actions.markChatRead({ id });
   }
 
-  const isChatOnlySummary = !threadInfo || !selectChatLastMessageId(global, id);
+  // Relay updates the authoritative unread count server-side. Mark the active
+  // non-forum chat read explicitly so every connected client receives it.
+  const lastMessageId = selectChatLastMessageId(global, id);
+  if (lastMessageId && chat && !chat.isForum) {
+    void callApi('markMessageListRead', { chat, threadId: MAIN_THREAD_ID, maxId: lastMessageId });
+  }
+
+  const isChatOnlySummary = !threadInfo || !lastMessageId;
 
   if (!chat) {
     if (selectIsChatWithSelf(global, id)) {

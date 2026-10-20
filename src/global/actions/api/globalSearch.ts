@@ -3,7 +3,7 @@ import { getActions } from '../../../global';
 import type {
   ApiChat, ApiGlobalMessageSearchType, ApiMessage, ApiMessageSearchContext, ApiPeer, ApiSearchPostsFlood,
   ApiTopicWithState,
-  ApiUserStatus,
+  ApiUser, ApiUserStatus,
 } from '../../../api/types';
 import type { ActionReturnType, GlobalState, TabArgs } from '../../types';
 
@@ -206,6 +206,8 @@ async function searchMessagesGlobal<T extends GlobalState>(global: T, params: {
   let result: {
     messages: ApiMessage[];
     userStatusesById?: Record<number, ApiUserStatus>;
+    chats?: ApiChat[];
+    users?: ApiUser[];
     topics?: ApiTopicWithState[];
     totalTopicsCount?: number;
     totalCount: number;

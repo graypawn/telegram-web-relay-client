@@ -1,8 +1,8 @@
 {
-  "name": "telegram-t",
-  "version": "12.0.20",
-  "description": "",
-  "author": "Alexander Zinchuk (alexander@zinchuk.com)",
+  "name": "telegram-web-relay-client",
+  "version": "12.0.20-relay.1",
+  "description": "Web client for telegram-web-relay. Fork of Telegram-tt (https://github.com/Ajaxy/telegram-tt).",
+  "author": "ChangYeon Lee",
   "license": "GPL-3.0-or-later",
   "type": "module",
   "main": "index.js",
@@ -139,7 +139,8 @@
     "opus-recorder": "github:Ajaxy/opus-recorder#116830a",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
-    "qr-code-styling": "^1.9.2"
+    "qr-code-styling": "^1.9.2",
+    "socket.io-client": "^4.8.3"
   },
   "browserslist": [
     "baseline widely available"

@@ -64,6 +64,7 @@ export interface ApiChat {
   isCallNotEmpty?: boolean;
 
   // Current user permissions
+  isMuted?: boolean;
   isNotJoined?: boolean;
   isListed?: boolean;
   isCreator?: boolean;

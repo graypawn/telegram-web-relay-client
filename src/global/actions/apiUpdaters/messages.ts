@@ -145,7 +145,9 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
         global = updateChatMediaLoadingState(global, newMessage, chatId, threadId, tabId);
 
         if (selectIsMessageInCurrentMessageList(global, chatId, message, tabId)) {
-          if (isLocal && message.isOutgoing && !(message.content?.action) && !storyReplyInfo?.storyId
+          // Messages originate at the relay and therefore are not local even
+          // when they are outgoing.
+          if (message.isOutgoing && !(message.content?.action) && !storyReplyInfo?.storyId
             && !message.content?.storyData) {
             const currentMessageList = selectCurrentMessageList(global, tabId);
             if (currentMessageList) {

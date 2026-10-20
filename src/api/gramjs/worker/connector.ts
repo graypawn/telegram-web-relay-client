@@ -13,6 +13,7 @@ import { getCurrentTabId, subscribeToMasterChange } from '../../../util/establis
 import generateUniqueId from '../../../util/generateUniqueId';
 import { ACCOUNT_SLOT, DATA_BROADCAST_CHANNEL_NAME } from '../../../util/multiaccount';
 import { pause, throttleWithTickEnd } from '../../../util/schedulers';
+import { emitEvent, initSocket, onEvent } from '../../socket/socketClient';
 
 type RequestState = {
   messageId: string;
@@ -86,31 +87,14 @@ export function initApi(onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
     return Promise.resolve();
   }
 
-  if (!worker) {
-    if (DEBUG) {
-      // eslint-disable-next-line no-console
-      console.log('>>> START LOAD WORKER');
-    }
+  // eslint-disable-next-line no-console
+  console.log('>>> INIT SOCKET CONNECTION (ALWAYS)');
 
-    const params = new URLSearchParams();
-    if (ACCOUNT_SLOT) {
-      params.set('account', String(ACCOUNT_SLOT));
-    }
+  return initSocket().then(() => {
+    // eslint-disable-next-line no-console
+    console.log('>>> SOCKET CONNECTED, subscribing to events');
+    subscribeToSocketEvents(onUpdate);
 
-    worker = new Worker(new URL('./worker.ts', import.meta.url), {
-      name: params.toString(),
-    });
-    subscribeToWorker(onUpdate);
-
-    if (initialArgs.platform === 'iOS' || (initialArgs.platform === 'macOS' && IS_TAURI)) {
-      setupHealthCheck();
-    }
-  }
-
-  return makeRequest({
-    type: 'initApi',
-    args: [initialArgs, savedLocalDb],
-  }).then(() => {
     isInited = true;
 
     apiRequestsQueue.forEach((request) => {
@@ -126,6 +110,10 @@ export function initApi(onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
         .catch(request.deferred.reject);
     });
     localApiRequestsQueue = [];
+  }).catch((error) => {
+    // eslint-disable-next-line no-console
+    console.error('[Connector] Failed to init socket:', error);
+    throw error;
   });
 }
 
@@ -176,7 +164,6 @@ export function callApiLocal<T extends keyof Methods>(
     args,
   });
 
-  // Some TypeScript magic to make sure `VirtualClass` is never returned from any method
   if (DEBUG) {
     (async () => {
       try {
@@ -187,11 +174,8 @@ export function callApiLocal<T extends keyof Methods>(
           ForbiddenTypes
           | (AnyLiteral & Record<string, ForbiddenTypes>);
 
-        // Unwrap all chained promises
         const response = await promise;
-        // Make sure responses do not include `VirtualClass` instances
         const allowedResponse: Exclude<typeof response, ForbiddenResponses> = response;
-        // Suppress "unused variable" constraint
         void allowedResponse;
       } catch (err) {
         // Do noting
@@ -310,6 +294,125 @@ function subscribeToWorker(onUpdate: OnApiUpdate) {
   });
 }
 
+const recentMessageIds = new Set<number>();
+const DEDUP_WINDOW = 5000;
+
+function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
+  onEvent('newMessage', (message: any) => {
+    // eslint-disable-next-line no-console
+    console.log('[Socket] New message received:', message);
+    // Deduplicate: skip if we already processed this message id
+    const msgId = message.id;
+    if (msgId && recentMessageIds.has(msgId)) return;
+    if (msgId) {
+      recentMessageIds.add(msgId);
+      setTimeout(() => recentMessageIds.delete(msgId), DEDUP_WINDOW);
+    }
+    // Server already filters out sending_state messages, but double-check
+    if (message.sending_state) return;
+    // Convert to ApiMessage format and dispatch update
+    const apiMessage = {
+      id: message.id,
+      chatId: String(message.chat_id || message.chatId),
+      date: message.date,
+      senderId: message.sender_id?.user_id ? String(message.sender_id.user_id)
+        : message.sender_id?.chat_id ? String(message.sender_id.chat_id)
+          : message.senderId ? String(message.senderId) : undefined,
+      isOutgoing: message.is_outgoing || message.isOutgoing || false,
+      content: message.content?.text?.text !== undefined
+        ? { text: { text: message.content.text.text } }
+        : message.content || { text: { text: '' } },
+    };
+    onUpdate({
+      '@type': 'newMessage',
+      id: apiMessage.id,
+      chatId: apiMessage.chatId,
+      message: apiMessage as any,
+    });
+  });
+
+  onEvent('authState', (data: { state: string }) => {
+    if (DEBUG) {
+      // eslint-disable-next-line no-console
+      console.log('[Socket] Auth state update:', data.state);
+    }
+    if (data.state === 'ready' || data.state === 'authorizationStateReady') {
+      onUpdate({
+        '@type': 'updateConnectionState',
+        connectionState: 'connectionStateReady',
+      });
+      onUpdate({
+        '@type': 'updateAuthorizationState',
+        authorizationState: 'authorizationStateReady',
+      });
+    }
+  });
+
+  // Message send succeeded: register ids for dedup, don't dispatch
+  // (the message will appear via natural getMessages reload, avoiding flicker)
+  onEvent('messageSendSucceeded', (data: any) => {
+    const { oldId, message } = data;
+    if (message?.id) {
+      recentMessageIds.add(message.id);
+      setTimeout(() => recentMessageIds.delete(message.id), DEDUP_WINDOW);
+    }
+    if (oldId) {
+      recentMessageIds.add(oldId);
+      setTimeout(() => recentMessageIds.delete(oldId), DEDUP_WINDOW);
+    }
+  });
+
+  // Chat read inbox (unread count update)
+  onEvent('chatReadInbox', (data: any) => {
+    onUpdate({
+      '@type': 'updateChat',
+      id: String(data.chatId),
+      chat: {},
+      readState: {
+        lastReadInboxMessageId: data.lastReadInboxMessageId,
+        unreadCount: data.unreadCount,
+      },
+    });
+  });
+
+  // Chat read outbox
+  onEvent('chatReadOutbox', (data: any) => {
+    onUpdate({
+      '@type': 'updateChat',
+      id: String(data.chatId),
+      chat: {},
+      readState: {
+        lastReadOutboxMessageId: data.lastReadOutboxMessageId,
+      },
+    });
+  });
+
+  // Chat last message update (order + preview)
+  onEvent('chatUpdate', (data: any) => {
+    if (data.lastMessage) {
+      const msg = data.lastMessage;
+      onUpdate({
+        '@type': 'updateChatLastMessage',
+        id: String(data.chatId),
+        lastMessage: {
+          id: msg.id,
+          chatId: String(data.chatId),
+          date: msg.date,
+          senderId: msg.sender_id?.user_id ? String(msg.sender_id.user_id)
+            : msg.sender_id?.chat_id ? String(msg.sender_id.chat_id) : undefined,
+          isOutgoing: msg.is_outgoing || false,
+          content: {
+            text: msg.content?.text ? { text: msg.content.text.text || '' } : undefined,
+          },
+        } as any,
+      });
+    }
+  });
+
+  // 서버에 초기 authState 요청
+  emitEvent('getAuthState');
+}
+
 export function handleMethodResponse(data: {
   messageId: string;
   response?: ThenArg<MethodResponse<keyof Methods>>;
@@ -412,9 +515,48 @@ function makeRequest(message: OriginPayload) {
       }
     });
 
-  postMessageOnTickEnd(payload);
+  if (worker) {
+    postMessageOnTickEnd(payload);
+  } else {
+    makeSocketRequest(payload, requestState);
+  }
 
   return promise;
+}
+
+function makeSocketRequest(payload: OriginPayload, requestState: RequestState) {
+  if (payload.type === 'callMethod' && payload.name) {
+    const eventName = `api:response:${payload.messageId}`;
+
+    const timeout = setTimeout(() => {
+      requestState.reject(new Error(`Request timeout: ${payload.name}`));
+    }, 30000);
+
+    onEvent(eventName, (response: any) => {
+      clearTimeout(timeout);
+      if (response.error) {
+        requestState.reject(response.error);
+      } else {
+        requestState.resolve(response.data);
+      }
+    });
+
+    emitEvent('api:request', {
+      id: payload.messageId,
+      method: payload.name,
+      params: payload.args?.[0] || {},
+    });
+  } else if (payload.type === 'ping') {
+    requestState.resolve(undefined);
+  } else if (payload.type === 'initApi') {
+    requestState.resolve(undefined);
+  } else {
+    if (DEBUG) {
+      // eslint-disable-next-line no-console
+      console.warn('[Connector] Unhandled socket request type:', payload.type);
+    }
+    requestState.resolve(undefined);
+  }
 }
 
 const startedAt = Date.now();
