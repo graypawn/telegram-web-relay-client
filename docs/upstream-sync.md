@@ -13,7 +13,15 @@ This client is a relay-specific derivative of [Telegram-tt](https://github.com/A
 ## Integration workflow
 
 1. Read `.upstream.json` and the upstream report to identify the current integrated revision and the target revision.
-2. Fetch the target revision from `Ajaxy/telegram-tt` into a local `telegram-tt` remote.
+2. Register and fetch the upstream remote when it is absent:
+
+   ```sh
+   git remote add telegram-tt https://github.com/Ajaxy/telegram-tt.git
+   git fetch --no-tags telegram-tt master
+   ```
+
+   When the remote already exists, only run the fetch command.
+
 3. Create `upstream-sync/<target-version>` from current `main`.
 4. Merge the target revision with `--no-ff`. Resolve source conflicts according to `AGENTS.md`.
 5. Regenerate `dist/`; never manually combine generated bundle output during conflict resolution.
