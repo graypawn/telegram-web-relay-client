@@ -2,9 +2,9 @@
   "repository": "Ajaxy/telegram-tt",
   "branch": "master",
   "integrated": {
-    "revision": "bb4678dd5a75045923ae1674e45db85bc5050566",
-    "version": "12.0.17",
+    "revision": "9a217fd1eb53b82260e9ea224ed2a7cc3872ca33",
+    "version": "12.0.20",
     "integratedAt": "2026-10-21",
-    "integrationCommit": "d2adb6e5"
+    "integrationCommit": "cf10e310"
   }
 }
