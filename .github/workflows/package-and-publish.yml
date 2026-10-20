@@ -44,6 +44,8 @@ jobs:
     needs: get-version
     outputs:
       should-skip: ${{ steps.check-release.outputs.should-skip }}
+      release-id: ${{ steps.check-release.outputs.release-id }}
+      should-create-release: ${{ steps.check-release.outputs.should-create-release }}
     steps:
       - name: Check whether release already exists
         id: check-release
@@ -54,6 +56,7 @@ jobs:
           if [ -z "$SHOULD_PUBLISH" ]; then
             echo "Publishing disabled (non-main branch)"
             echo "should-skip=false" >> "$GITHUB_OUTPUT"
+            echo "should-create-release=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -61,21 +64,27 @@ jobs:
             "https://api.github.com/repos/$PUBLISH_REPO/releases/tags/$TAG_NAME")
 
           if echo "$RESPONSE" | jq -e '.tag_name' > /dev/null; then
+            RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+            echo "release-id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
             if [ "$(echo "$RESPONSE" | jq -r '.draft')" = "false" ]; then
               echo "Published release already exists for $TAG_NAME"
               echo "should-skip=true" >> "$GITHUB_OUTPUT"
+              echo "should-create-release=false" >> "$GITHUB_OUTPUT"
             else
+              echo "Reusing existing draft release for $TAG_NAME"
               echo "should-skip=false" >> "$GITHUB_OUTPUT"
+              echo "should-create-release=false" >> "$GITHUB_OUTPUT"
             fi
           else
             echo "No release found for $TAG_NAME"
             echo "should-skip=false" >> "$GITHUB_OUTPUT"
+            echo "should-create-release=true" >> "$GITHUB_OUTPUT"
           fi
 
   create-release:
     runs-on: ubuntu-latest
     needs: [get-version, check-version]
-    if: needs.get-version.outputs.should-publish != '' && needs.check-version.outputs.should-skip != 'true'
+    if: needs.get-version.outputs.should-publish != '' && needs.check-version.outputs.should-create-release == 'true'
     outputs:
       release-id: ${{ steps.create-release.outputs.release-id }}
     steps:
@@ -114,7 +123,13 @@ jobs:
         run: npm ci
 
       - name: Build production client
-        run: npm run build:production
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        run: |
+          test -n "$TELEGRAM_API_ID" || { echo "Missing TELEGRAM_API_ID repository secret" >&2; exit 1; }
+          test -n "$TELEGRAM_API_HASH" || { echo "Missing TELEGRAM_API_HASH repository secret" >&2; exit 1; }
+          npm run build:production
 
       - name: Create dist archive
         id: package
@@ -134,7 +149,7 @@ jobs:
       - name: Upload release asset
         if: needs.get-version.outputs.should-publish != ''
         env:
-          RELEASE_ID: ${{ needs.create-release.outputs.release-id }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release-id || needs.check-version.outputs.release-id }}
           ARCHIVE: ${{ steps.package.outputs.archive }}
         run: |
           RESPONSE=$(curl --fail-with-body -sS -X POST \
@@ -149,7 +164,7 @@ jobs:
     needs: [get-version, check-version, create-release, package-dist]
     if: needs.get-version.outputs.should-publish != '' && needs.check-version.outputs.should-skip != 'true'
     env:
-      RELEASE_ID: ${{ needs.create-release.outputs.release-id }}
+      RELEASE_ID: ${{ needs.create-release.outputs.release-id || needs.check-version.outputs.release-id }}
     steps:
       - name: Publish release
         run: |
