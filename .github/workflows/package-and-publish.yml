@@ -61,12 +61,14 @@ jobs:
           fi
 
           RESPONSE=$(curl -sS -H "Authorization: Bearer $GH_TOKEN" \
-            "https://api.github.com/repos/$PUBLISH_REPO/releases/tags/$TAG_NAME")
+            "https://api.github.com/repos/$PUBLISH_REPO/releases?per_page=100")
+          RELEASE=$(echo "$RESPONSE" | jq -c --arg tag "$TAG_NAME" \
+            '[.[]? | select(.tag_name == $tag)] | first')
 
-          if echo "$RESPONSE" | jq -e '.tag_name' > /dev/null; then
-            RELEASE_ID=$(echo "$RESPONSE" | jq -r '.id')
+          if [ "$RELEASE" != "null" ]; then
+            RELEASE_ID=$(echo "$RELEASE" | jq -r '.id')
             echo "release-id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
-            if [ "$(echo "$RESPONSE" | jq -r '.draft')" = "false" ]; then
+            if [ "$(echo "$RELEASE" | jq -r '.draft')" = "false" ]; then
               echo "Published release already exists for $TAG_NAME"
               echo "should-skip=true" >> "$GITHUB_OUTPUT"
               echo "should-create-release=false" >> "$GITHUB_OUTPUT"
