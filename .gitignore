@@ -12,4 +12,5 @@ dev/perf/screenshot*
 .DS_store
 .github/workflows/*
 !.github/workflows/package-and-publish.yml
+!.github/workflows/check-telegram-tt-upstream.yml
 dist.bak.*/
