@@ -1,6 +1,8 @@
 import type { Api } from '../../../lib/gramjs';
 import type { TypedBroadcastChannel } from '../../../util/browser/multitab';
-import type { ApiInitialArgs, ApiOnProgress, OnApiUpdate } from '../../types';
+import type {
+  ApiInitialArgs, ApiOnProgress, ApiUpdateAuthorizationStateType, OnApiUpdate,
+} from '../../types';
 import type { LocalDb } from '../localDb';
 import type { MethodArgs, MethodResponse, Methods } from '../methods/types';
 import type { OriginPayload, ThenArg, WorkerMessageEvent } from './types';
@@ -331,19 +333,30 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
     });
   });
 
-  onEvent('authState', (data: { state: string }) => {
+  onEvent('authState', (data: {
+    state: string;
+    qrCode?: { token: string; expires: number };
+  }) => {
     if (DEBUG) {
       // eslint-disable-next-line no-console
       console.log('[Socket] Auth state update:', data.state);
     }
-    if (data.state === 'ready' || data.state === 'authorizationStateReady') {
+    const authorizationState = data.state === 'authorizationStateWaitOtherDeviceConfirmation'
+      ? 'authorizationStateWaitQrCode'
+      : data.state === 'ready'
+        ? 'authorizationStateReady'
+        : data.state as ApiUpdateAuthorizationStateType;
+
+    onUpdate({
+      '@type': 'updateAuthorizationState',
+      authorizationState,
+      qrCode: data.qrCode,
+    });
+
+    if (authorizationState === 'authorizationStateReady') {
       onUpdate({
         '@type': 'updateConnectionState',
         connectionState: 'connectionStateReady',
-      });
-      onUpdate({
-        '@type': 'updateAuthorizationState',
-        authorizationState: 'authorizationStateReady',
       });
     }
   });
@@ -409,8 +422,12 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
     }
   });
 
-  // 서버에 초기 authState 요청
-  emitEvent('getAuthState');
+  // Access proxy and reconnects can deliver the initial state before this
+  // listener is ready. Request it again shortly after initialization.
+  const requestAuthState = () => emitEvent('getAuthState');
+  requestAuthState();
+  setTimeout(requestAuthState, 250);
+  setTimeout(requestAuthState, 1000);
 }
 
 export function handleMethodResponse(data: {
