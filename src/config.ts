@@ -41,6 +41,9 @@ export const DEBUG_PAYMENT_SMART_GLOCAL = false;
 
 export const SESSION_LEGACY_USER_KEY = 'user_auth';
 export const SESSION_ACCOUNT_PREFIX = 'account';
+// Relay authentication lives on the server, so it has no browser-side GramJS session.
+// This marker lets the client restore its cached shell while the relay confirms auth.
+export const TG2_SESSION_FLAG = 'tg2-session';
 export const LEGACY_PASSCODE_CACHE_NAME = 'tt-passcode';
 
 export const MULTIACCOUNT_MAX_SLOTS = 6;

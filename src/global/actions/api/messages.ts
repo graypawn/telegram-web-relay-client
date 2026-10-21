@@ -1788,7 +1788,7 @@ async function loadViewportMessages<T extends GlobalState>(
   }
 
   const {
-    messages, count, topics,
+    messages, count, topics = [],
   } = result;
 
   global = getGlobal();

@@ -11,6 +11,7 @@ import { IS_MAC_OS, PLATFORM_ENV } from '../../util/browser/windowEnvironment';
 import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
 import useHistoryBack from '../../hooks/useHistoryBack';
 
+import Loading from '../ui/Loading';
 import Transition from '../ui/Transition';
 import AuthCode from './AuthCode.async';
 import AuthPassword from './AuthPassword.async';
@@ -22,10 +23,12 @@ import './Auth.scss';
 
 type StateProps = {
   authState: GlobalState['auth']['state'];
+  isAuthStateLoading?: boolean;
 };
 
 const Auth = ({
   authState,
+  isAuthStateLoading,
 }: StateProps) => {
   const {
     returnToAuthPhoneNumber, goToAuthQrCode,
@@ -66,6 +69,9 @@ const Auth = ({
       case 'authorizationStateWaitQrCode':
         return <AuthQrCode />;
       default:
+        if (isAuthStateLoading) {
+          return <Loading />;
+        }
         return isMobile ? <AuthPhoneNumber /> : <AuthQrCode />;
     }
   }
@@ -103,6 +109,7 @@ export default memo(withGlobal(
   (global): Complete<StateProps> => {
     return {
       authState: global.auth.state,
+      isAuthStateLoading: global.auth.isLoading,
     };
   },
 )(Auth));

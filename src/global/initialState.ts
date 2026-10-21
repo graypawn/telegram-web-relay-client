@@ -119,6 +119,9 @@ export const INITIAL_GLOBAL_STATE: GlobalState = {
 
   auth: {
     rememberMe: true,
+    // Do not render a login method before the relay has supplied its current
+    // authorization state. This prevents a brief, misleading QR screen on reload.
+    isLoading: true,
   },
   countryList: {
     phoneCodes: [],
