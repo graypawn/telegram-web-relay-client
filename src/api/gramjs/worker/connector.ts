@@ -361,11 +361,10 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
 
     if (authorizationState === 'authorizationStateReady') {
       localStorage.setItem(TG2_SESSION_FLAG, '1');
-    } else if (authorizationState === 'authorizationStateWaitQrCode'
-      && localStorage.getItem(TG2_SESSION_FLAG) === '1') {
+    } else if (authorizationState === 'authorizationStateWaitQrCode') {
       // TDLib can briefly restore its persisted authorization through the QR
-      // state during startup. Keep the cached shell visible unless that state
-      // remains stable, avoiding a misleading QR flash on reload.
+      // state during startup. Delay QR rendering until it remains stable so a
+      // first load after an update cannot flash a misleading login screen.
       pendingRelayQrStateTimeout = setTimeout(() => {
         localStorage.removeItem(TG2_SESSION_FLAG);
         pendingRelayQrStateTimeout = undefined;
