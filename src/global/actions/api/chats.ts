@@ -546,12 +546,21 @@ addActionHandler('loadAllChats', async (global, actions, payload): Promise<void>
     const isFirstBatch = !isCallbackFired;
     if (!isCallbackFired) {
       // `whenFirstBatchDone` restores the active chat viewport and expects the
-      // chat list's last messages to be available already. Keep the ordering
-      // used before the thread-state refactor: publishing them afterwards can
-      // leave `messages.byChatId[chatId]` absent during the initial sync.
-      if (result?.messages) {
+      // chat list's message and main-thread state to be available already.
+      // The v20 reducers only persist listed IDs on an existing thread, so
+      // publishing these after the callback makes every later history response
+      // appear to load successfully but leaves its viewport empty.
+      if (result) {
         global = getGlobal();
-        global = replaceMessages(global, result.messages);
+        if (result.messages) {
+          global = replaceMessages(global, result.messages);
+        }
+        result.threadInfos?.forEach((threadInfo) => {
+          global = updateThreadInfo(global, threadInfo);
+        });
+        if (result.threadReadStatesById) {
+          global = updateMainThreadReadStates(global, result.threadReadStatesById);
+        }
         setGlobal(global);
       }
 

@@ -263,11 +263,31 @@ async function loadAndReplaceMessages<T extends GlobalState>(global: T, actions:
 }
 
 function resetMessages<T extends GlobalState>(global: T) {
+  const byChatId = Object.fromEntries(Object.entries(global.messages.byChatId).map(([chatId, messageStore]) => [
+    chatId,
+    {
+      byId: {},
+      summaryById: {},
+      // Thread metadata is received with the chat list and is required before
+      // a viewport response can write its listed IDs. Reset transient message
+      // data, but retain that server metadata for every chat, not only the
+      // currently opened one.
+      threadsById: Object.fromEntries(Object.entries(messageStore.threadsById).map(([threadId, thread]) => [
+        threadId,
+        {
+          threadInfo: thread.threadInfo,
+          readState: thread.readState,
+          localState: {},
+        },
+      ])),
+    },
+  ]));
+
   return {
     ...global,
     messages: {
       ...global.messages,
-      byChatId: {},
+      byChatId,
     },
   };
 }
