@@ -104,6 +104,7 @@ addActionHandler('sync', (global, actions): ActionReturnType => {
 
 async function loadAndReplaceMessages<T extends GlobalState>(global: T, actions: RequiredGlobalActions) {
   let areMessagesLoaded = false;
+  let hasStaleMessageList = false;
 
   global = getGlobal();
 
@@ -149,8 +150,12 @@ async function loadAndReplaceMessages<T extends GlobalState>(global: T, actions:
       global = getGlobal();
       const { chatId: newCurrentChatId } = selectCurrentMessageList(global, tabId) || {};
 
-      if (result && newCurrentChatId === currentChatId) {
-        const currentChatMessages = selectChatMessages(global, currentChatId);
+      if (result && newCurrentChatId !== currentChatId) {
+        // Do not let a response for a chat that was just closed clear the
+        // viewport and message cache of the newly opened chat.
+        hasStaleMessageList = true;
+      } else if (result) {
+        const currentChatMessages = selectChatMessages(global, currentChatId) || {};
         const localMessages = currentChatId === SERVICE_NOTIFICATIONS_USER_ID
           ? global.serviceNotifications.filter(({ isDeleted }) => !isDeleted).map(({ message }) => message)
           : [];
@@ -162,7 +167,10 @@ async function loadAndReplaceMessages<T extends GlobalState>(global: T, actions:
           }).filter(Boolean) : [];
 
         const resultMessageIds = result.messages.map(({ id }) => id);
-        const messagesThreads = pick(global.messages.byChatId[currentChatId].threadsById, resultMessageIds);
+        const messagesThreads = pick(
+          global.messages.byChatId[currentChatId]?.threadsById || {},
+          resultMessageIds,
+        );
 
         const isDiscussionStartLoaded = !result.messages.length
           || result.messages.some(({ id }) => id === resultDiscussion?.firstMessageId);
@@ -226,7 +234,7 @@ async function loadAndReplaceMessages<T extends GlobalState>(global: T, actions:
 
   global = getGlobal();
 
-  if (!areMessagesLoaded) {
+  if (!areMessagesLoaded && !hasStaleMessageList) {
     global = resetMessages(global);
 
     Object.values(global.byTabId).forEach(({ id: otherTabId }) => {

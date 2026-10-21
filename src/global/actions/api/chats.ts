@@ -545,6 +545,16 @@ addActionHandler('loadAllChats', async (global, actions, payload): Promise<void>
 
     const isFirstBatch = !isCallbackFired;
     if (!isCallbackFired) {
+      // `whenFirstBatchDone` restores the active chat viewport and expects the
+      // chat list's last messages to be available already. Keep the ordering
+      // used before the thread-state refactor: publishing them afterwards can
+      // leave `messages.byChatId[chatId]` absent during the initial sync.
+      if (result?.messages) {
+        global = getGlobal();
+        global = replaceMessages(global, result.messages);
+        setGlobal(global);
+      }
+
       await whenFirstBatchDone?.();
       isCallbackFired = true;
     }
