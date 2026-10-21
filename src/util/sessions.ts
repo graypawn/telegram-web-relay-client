@@ -6,11 +6,18 @@ import {
   DEBUG, IS_SCREEN_LOCKED_CACHE_KEY,
   SESSION_ACCOUNT_PREFIX,
   SESSION_LEGACY_USER_KEY,
+  TG2_SESSION_FLAG,
 } from '../config';
 import { ACCOUNT_SLOT, storeAccountData, writeSlotSession } from './multiaccount';
 
 export function hasStoredSession() {
   if (checkSessionLocked()) {
+    return true;
+  }
+
+  // The relay keeps TDLib authorization on the server, so there is no local
+  // GramJS key to restore after a page reload. It records readiness separately.
+  if (localStorage.getItem(TG2_SESSION_FLAG) === '1') {
     return true;
   }
 

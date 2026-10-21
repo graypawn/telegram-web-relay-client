@@ -7,7 +7,7 @@ import type { LocalDb } from '../localDb';
 import type { MethodArgs, MethodResponse, Methods } from '../methods/types';
 import type { OriginPayload, ThenArg, WorkerMessageEvent } from './types';
 
-import { DEBUG, IGNORE_UNHANDLED_ERRORS } from '../../../config';
+import { DEBUG, IGNORE_UNHANDLED_ERRORS, TG2_SESSION_FLAG } from '../../../config';
 import { IS_TAURI } from '../../../util/browser/globalEnvironment';
 import { logDebugMessage } from '../../../util/debugConsole';
 import Deferred from '../../../util/Deferred';
@@ -298,6 +298,16 @@ function subscribeToWorker(onUpdate: OnApiUpdate) {
 
 const recentMessageIds = new Set<number>();
 const DEDUP_WINDOW = 5000;
+const RELAY_QR_STATE_GRACE_PERIOD = 2500;
+
+let pendingRelayQrStateTimeout: ReturnType<typeof setTimeout> | undefined;
+
+function clearPendingRelayQrState() {
+  if (pendingRelayQrStateTimeout === undefined) return;
+
+  clearTimeout(pendingRelayQrStateTimeout);
+  pendingRelayQrStateTimeout = undefined;
+}
 
 function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
   onEvent('newMessage', (message: any) => {
@@ -346,6 +356,29 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
       : data.state === 'ready'
         ? 'authorizationStateReady'
         : data.state as ApiUpdateAuthorizationStateType;
+
+    clearPendingRelayQrState();
+
+    if (authorizationState === 'authorizationStateReady') {
+      localStorage.setItem(TG2_SESSION_FLAG, '1');
+    } else if (authorizationState === 'authorizationStateWaitQrCode'
+      && localStorage.getItem(TG2_SESSION_FLAG) === '1') {
+      // TDLib can briefly restore its persisted authorization through the QR
+      // state during startup. Keep the cached shell visible unless that state
+      // remains stable, avoiding a misleading QR flash on reload.
+      pendingRelayQrStateTimeout = setTimeout(() => {
+        localStorage.removeItem(TG2_SESSION_FLAG);
+        pendingRelayQrStateTimeout = undefined;
+        onUpdate({
+          '@type': 'updateAuthorizationState',
+          authorizationState,
+          qrCode: data.qrCode,
+        });
+      }, RELAY_QR_STATE_GRACE_PERIOD);
+      return;
+    } else {
+      localStorage.removeItem(TG2_SESSION_FLAG);
+    }
 
     onUpdate({
       '@type': 'updateAuthorizationState',
