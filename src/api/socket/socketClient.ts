@@ -18,6 +18,7 @@ const SERVER_URL = getServerUrl();
 
 let socket: Socket | null = null;
 let isConnected = false;
+let connectionPromise: Promise<void> | undefined;
 
 // 연결 콜백 저장
 type ConnectionCallback = (connected: boolean) => void;
@@ -27,54 +28,76 @@ const connectionCallbacks: ConnectionCallback[] = [];
  * Socket.io 연결 초기화
  */
 export function initSocket(): Promise<void> {
-  if (socket && isConnected) {
-    return Promise.resolve();
+  if (socket) {
+    return waitForSocketConnection();
   }
 
-  return new Promise<void>((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      reject(new Error('Socket connection timeout'));
-    }, 20000);
-
-    socket = io(SERVER_URL, {
-      // 서버(server.js)가 polling 전용이므로 업그레이드 프로브 제거.
-      transports: ['polling'],
-      upgrade: false,
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 20000,
-      // Cloudflare Access authenticates the Socket.IO polling handshake with
-      // the browser session cookie.
-      withCredentials: true,
-    });
-
-    socket.on('connect', () => {
-      console.log('[SocketClient] Connected to', SERVER_URL);
-      isConnected = true;
-      clearTimeout(timeoutId);
-      connectionCallbacks.forEach(cb => cb(true));
-      resolve();
-    });
-
-    socket.on('disconnect', (reason) => {
-      console.log('[SocketClient] Disconnected:', reason);
-      isConnected = false;
-      connectionCallbacks.forEach(cb => cb(false));
-    });
-
-    socket.on('connect_error', (error) => {
-      console.error('[SocketClient] Connection error:', error.message);
-      clearTimeout(timeoutId);
-      reject(error);
-    });
-
-    // 인증 상태 수신
-    socket.on('authState', ({ state }) => {
-      console.log('[SocketClient] Auth state:', state);
-    });
+  socket = io(SERVER_URL, {
+    // 서버(server.js)가 polling 전용이므로 업그레이드 프로브 제거.
+    transports: ['polling'],
+    upgrade: false,
+    reconnection: true,
+    // A Cloudflare Access renewal or a temporary tunnel outage can take
+    // longer than ten attempts. Keep retrying until the page is closed.
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
+    // Cloudflare Access authenticates the Socket.IO polling handshake with
+    // the browser session cookie.
+    withCredentials: true,
   });
+
+  socket.on('connect', () => {
+    console.log('[SocketClient] Connected to', SERVER_URL);
+    isConnected = true;
+    connectionCallbacks.forEach(cb => cb(true));
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('[SocketClient] Disconnected:', reason);
+    isConnected = false;
+    connectionCallbacks.forEach(cb => cb(false));
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('[SocketClient] Connection error:', error.message);
+  });
+
+  // 인증 상태 수신
+  socket.on('authState', ({ state }) => {
+    console.log('[SocketClient] Auth state:', state);
+  });
+
+  return waitForSocketConnection();
+}
+
+function waitForSocketConnection(): Promise<void> {
+  if (isConnected) return Promise.resolve();
+  if (connectionPromise) return connectionPromise;
+
+  let resolveConnection: () => void;
+  let rejectConnection: (error: Error) => void;
+  const promise = new Promise<void>((resolve, reject) => {
+    resolveConnection = resolve;
+    rejectConnection = reject;
+  });
+  connectionPromise = promise;
+
+  const timeoutId = setTimeout(() => {
+    if (connectionPromise !== promise) return;
+    connectionPromise = undefined;
+    rejectConnection(new Error('Socket connection timeout'));
+  }, 20000);
+
+  socket!.once('connect', () => {
+    if (connectionPromise !== promise) return;
+    clearTimeout(timeoutId);
+    connectionPromise = undefined;
+    resolveConnection();
+  });
+
+  return promise;
 }
 
 /**
@@ -144,6 +167,7 @@ export function disconnectSocket(): void {
     socket.disconnect();
     socket = null;
     isConnected = false;
+    connectionPromise = undefined;
   }
 }
 

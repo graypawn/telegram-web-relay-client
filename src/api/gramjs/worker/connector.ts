@@ -12,7 +12,9 @@ import Deferred from '../../../util/Deferred';
 import { getCurrentTabId, subscribeToMasterChange } from '../../../util/establishMultitabRole';
 import generateUniqueId from '../../../util/generateUniqueId';
 import { DATA_BROADCAST_CHANNEL_NAME } from '../../../util/multiaccount';
-import { emitEvent, initSocket, onEvent } from '../../socket/socketClient';
+import {
+  emitEvent, initSocket, onConnectionChange, onEvent,
+} from '../../socket/socketClient';
 
 type RequestState = {
   messageId: string;
@@ -58,8 +60,13 @@ export function initApiOnMasterTab(initialArgs: ApiInitialArgs) {
 let localApiRequestsQueue: { fnName: any; args: any; deferred: Deferred<any> }[] = [];
 let apiRequestsQueue: { fnName: any; args: any; deferred: Deferred<any> }[] = [];
 let isInited = false;
+let isInitializingApi = false;
+let socketEventsSubscribed = false;
+let shouldResyncAfterReconnect = false;
+let onRelayUpdate: OnApiUpdate | undefined;
 
 export function initApi(onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
+  onRelayUpdate = onUpdate;
   if (!isMasterTab) {
     initApiOnMasterTab(initialArgs);
     return Promise.resolve();
@@ -68,12 +75,19 @@ export function initApi(onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
   // eslint-disable-next-line no-console
   console.log('>>> INIT SOCKET CONNECTION (ALWAYS)');
 
-  return initSocket().then(() => {
+  isInitializingApi = true;
+  const socketReady = initSocket();
+  // Register relay handlers before awaiting the initial connection. If Cloudflare
+  // Access temporarily blocks the polling request, Socket.IO can reconnect after
+  // the initial timeout and still restore the application state.
+  subscribeToSocketEvents();
+
+  return socketReady.then(() => {
     // eslint-disable-next-line no-console
     console.log('>>> SOCKET CONNECTED, subscribing to events');
-    subscribeToSocketEvents(onUpdate);
 
     isInited = true;
+    isInitializingApi = false;
 
     apiRequestsQueue.forEach((request) => {
       callApi(request.fnName, ...request.args)
@@ -89,6 +103,7 @@ export function initApi(onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
     });
     localApiRequestsQueue = [];
   }).catch((error) => {
+    isInitializingApi = false;
     // eslint-disable-next-line no-console
     console.error('[Connector] Failed to init socket:', error);
     throw error;
@@ -247,7 +262,33 @@ function clearPendingRelayQrState() {
   pendingRelayQrStateTimeout = undefined;
 }
 
-function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
+function dispatchRelayUpdate(update: Parameters<OnApiUpdate>[0]) {
+  onRelayUpdate?.(update);
+}
+
+function requestRelayAuthState() {
+  emitEvent('getAuthState');
+}
+
+function subscribeToSocketEvents() {
+  if (socketEventsSubscribed) return;
+  socketEventsSubscribed = true;
+
+  onConnectionChange((connected) => {
+    if (!connected) {
+      shouldResyncAfterReconnect = true;
+      dispatchRelayUpdate({
+        '@type': 'updateConnectionState',
+        connectionState: 'connectionStateConnecting',
+      });
+      return;
+    }
+
+    // A relay restart or Cloudflare Access renewal can reconnect Socket.IO
+    // without replaying updates received while it was disconnected.
+    requestRelayAuthState();
+  });
+
   onEvent('newMessage', (message: any) => {
     // eslint-disable-next-line no-console
     console.log('[Socket] New message received:', message);
@@ -273,7 +314,7 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
         ? { text: { text: message.content.text.text } }
         : message.content || { text: { text: '' } },
     };
-    onUpdate({
+    dispatchRelayUpdate({
       '@type': 'newMessage',
       id: apiMessage.id,
       chatId: apiMessage.chatId,
@@ -306,7 +347,7 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
       pendingRelayQrStateTimeout = setTimeout(() => {
         localStorage.removeItem(TG2_SESSION_FLAG);
         pendingRelayQrStateTimeout = undefined;
-        onUpdate({
+        dispatchRelayUpdate({
           '@type': 'updateAuthorizationState',
           authorizationState,
           qrCode: data.qrCode,
@@ -317,17 +358,25 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
       localStorage.removeItem(TG2_SESSION_FLAG);
     }
 
-    onUpdate({
+    dispatchRelayUpdate({
       '@type': 'updateAuthorizationState',
       authorizationState,
       qrCode: data.qrCode,
     });
 
     if (authorizationState === 'authorizationStateReady') {
-      onUpdate({
+      dispatchRelayUpdate({
         '@type': 'updateConnectionState',
         connectionState: 'connectionStateReady',
       });
+      if (shouldResyncAfterReconnect) {
+        shouldResyncAfterReconnect = false;
+        dispatchRelayUpdate({ '@type': 'requestSync' });
+      } else if (!isInited && !isInitializingApi) {
+        // The first connection may arrive after the initial 20-second wait has
+        // expired. Re-run API initialization so queued requests are released.
+        dispatchRelayUpdate({ '@type': 'requestReconnectApi' });
+      }
     }
   });
 
@@ -347,7 +396,7 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
 
   // Chat read inbox (unread count update)
   onEvent('chatReadInbox', (data: any) => {
-    onUpdate({
+    dispatchRelayUpdate({
       '@type': 'updateChat',
       id: String(data.chatId),
       chat: {},
@@ -360,7 +409,7 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
 
   // Chat read outbox
   onEvent('chatReadOutbox', (data: any) => {
-    onUpdate({
+    dispatchRelayUpdate({
       '@type': 'updateChat',
       id: String(data.chatId),
       chat: {},
@@ -374,7 +423,7 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
   onEvent('chatUpdate', (data: any) => {
     if (data.lastMessage) {
       const msg = data.lastMessage;
-      onUpdate({
+      dispatchRelayUpdate({
         '@type': 'updateChatLastMessage',
         id: String(data.chatId),
         lastMessage: {
@@ -394,7 +443,7 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
 
   // Access proxy and reconnects can deliver the initial state before this
   // listener is ready. Request it again shortly after initialization.
-  const requestAuthState = () => emitEvent('getAuthState');
+  const requestAuthState = () => requestRelayAuthState();
   requestAuthState();
   setTimeout(requestAuthState, 250);
   setTimeout(requestAuthState, 1000);
