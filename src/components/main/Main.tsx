@@ -253,6 +253,7 @@ const Main = ({
     loadPeerColors,
     loadSavedReactionTags,
     loadTimezones,
+    loadAiComposeTones,
     loadQuickReplies,
     loadStarStatus,
     loadAvailableEffects,
@@ -271,7 +272,7 @@ const Main = ({
 
   if (DEBUG && !DEBUG_isLogged) {
     DEBUG_isLogged = true;
-    // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console, @eslint-react/purity
     console.log('>>> RENDER MAIN');
   }
 
@@ -348,6 +349,7 @@ const Main = ({
       loadRestrictedEmojiStickers();
       loadQuickReplies();
       loadTimezones();
+      loadAiComposeTones();
       loadActiveGiftAuctions();
     }
   }, [isMasterTab, isSynced, isAppConfigLoaded, isAccountFrozen]);
@@ -369,7 +371,7 @@ const Main = ({
 
       loadCountryList({ langCode: lang.code });
     }
-  }, [lang, isMasterTab]);
+  }, [lang.code, isMasterTab]);
 
   // Re-fetch cached saved emoji for `localDb`
   useEffect(() => {
@@ -426,7 +428,7 @@ const Main = ({
 
     const parsedInitialLocationHash = parseInitialLocationHash();
     if (parsedInitialLocationHash?.tgaddr) {
-      processDeepLink(decodeURIComponent(parsedInitialLocationHash.tgaddr));
+      processDeepLink(decodeURIComponent(parsedInitialLocationHash.tgaddr), { type: 'inner' });
     }
   }, [isSynced]);
 
@@ -434,7 +436,7 @@ const Main = ({
     try {
       const url = event.payload || '';
       const decodedUrl = decodeURIComponent(url);
-      processDeepLink(decodedUrl);
+      processDeepLink(decodedUrl, { type: 'inner' });
     } catch (e) {
       if (DEBUG) {
         // eslint-disable-next-line no-console

@@ -94,12 +94,6 @@ export default function createConfig(
         {
           directory: path.resolve(__dirname, 'src/lib/rlottie'),
         },
-        {
-          directory: path.resolve(__dirname, 'src/lib/video-preview'),
-        },
-        {
-          directory: path.resolve(__dirname, 'src/lib/secret-sauce'),
-        },
       ],
       devMiddleware: {
         stats: 'minimal',
@@ -180,6 +174,7 @@ export default function createConfig(
       alias: {
         '@teact$': path.resolve(__dirname, './src/lib/teact/teact.ts'),
         '@teact': path.resolve(__dirname, './src/lib/teact'),
+        '@gili': path.resolve(__dirname, './src/components/gili'),
       },
       fallback: {
         path: require.resolve('path-browserify'),

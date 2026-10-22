@@ -1,9 +1,12 @@
 import { Api as GramJs, type Update } from '../../../lib/gramjs';
 import { UpdateConnectionState, UpdateServerTimeOffset } from '../../../lib/gramjs/network';
 
-import type { GroupCallConnectionData } from '../../../lib/secret-sauce';
+import type { GroupCallConnectionData } from '../../../lib/vibecalls';
 import {
-  type ApiMessage, type ApiPoll, type ApiStory, type ApiStorySkipped,
+  type ApiMessage,
+  type ApiMessagePoll,
+  type ApiStory,
+  type ApiStorySkipped,
   type ApiUpdateConnectionStateType,
   type ApiWebPage,
   MAIN_THREAD_ID,
@@ -11,7 +14,7 @@ import {
 
 import { DEBUG, GENERAL_TOPIC_ID } from '../../../config';
 import {
-  omit, pick,
+  omit, omitUndefined, pick,
 } from '../../../util/iteratees';
 import { getServerTimeOffset, setServerTimeOffset } from '../../../util/serverTime';
 import { buildApiBotCommand, buildApiBotMenuButton } from '../apiBuilders/bots';
@@ -38,8 +41,8 @@ import { omitVirtualClassFields } from '../apiBuilders/helpers';
 import {
   buildApiMessageExtendedMediaPreview,
   buildBoughtMediaContent,
+  buildMessagePollFromMedia,
   buildPoll,
-  buildPollFromMedia,
   buildPollResults,
   buildWebPage,
   buildWebPageFromMedia,
@@ -134,7 +137,7 @@ export function updater(update: Update) {
     || update instanceof GramJs.UpdateShortMessage
   ) {
     let message: ApiMessage | undefined;
-    let poll: ApiPoll | undefined;
+    let poll: ApiMessagePoll | undefined;
     let webPage: ApiWebPage | undefined;
     let shouldForceReply: boolean | undefined;
 
@@ -159,7 +162,7 @@ export function updater(update: Update) {
       message = buildApiMessage(mtpMessage)!;
 
       if (mtpMessage instanceof GramJs.Message) {
-        poll = mtpMessage.media && buildPollFromMedia(mtpMessage.media);
+        poll = mtpMessage.media && buildMessagePollFromMedia(mtpMessage.media);
         webPage = mtpMessage.media && buildWebPageFromMedia(mtpMessage.media);
       }
 
@@ -303,7 +306,7 @@ export function updater(update: Update) {
     if (!message) return;
 
     const poll = update.message instanceof GramJs.Message && update.message.media
-      ? buildPollFromMedia(update.message.media) : undefined;
+      ? buildMessagePollFromMedia(update.message.media) : undefined;
     const webPage = update.message instanceof GramJs.Message && update.message.media
       ? buildWebPageFromMedia(update.message.media) : undefined;
 
@@ -358,7 +361,7 @@ export function updater(update: Update) {
     const message = omit(buildApiMessage(mtpMessage)!, ['isOutgoing']) as ApiMessage;
 
     const poll = mtpMessage instanceof GramJs.Message && mtpMessage.media
-      ? buildPollFromMedia(mtpMessage.media) : undefined;
+      ? buildMessagePollFromMedia(mtpMessage.media) : undefined;
 
     const webPage = mtpMessage instanceof GramJs.Message && mtpMessage.media
       ? buildWebPageFromMedia(mtpMessage.media) : undefined;
@@ -472,22 +475,14 @@ export function updater(update: Update) {
     });
   } else if (update instanceof GramJs.UpdateMessagePoll) {
     const { pollId, poll, results } = update;
-    if (poll) {
-      const apiPoll = buildPoll(poll, results);
+    const apiPoll = poll && buildPoll(poll);
+    const pollResults = buildPollResults(results);
 
-      sendApiUpdate({
-        '@type': 'updateMessagePoll',
-        pollId: String(pollId),
-        pollUpdate: apiPoll,
-      });
-    } else {
-      const pollResults = buildPollResults(results);
-      sendApiUpdate({
-        '@type': 'updateMessagePoll',
-        pollId: String(pollId),
-        pollUpdate: { results: pollResults },
-      });
-    }
+    sendApiUpdate({
+      '@type': 'updateMessagePoll',
+      pollId: pollId.toString(),
+      pollUpdate: omitUndefined({ summary: apiPoll, results: pollResults }),
+    });
   } else if (update instanceof GramJs.UpdateMessagePollVote) {
     sendApiUpdate({
       '@type': 'updateMessagePollVote',
@@ -519,6 +514,7 @@ export function updater(update: Update) {
       readState: {
         lastReadInboxMessageId: update.maxId,
         unreadCount: update.stillUnreadCount,
+        hasUnreadMark: undefined,
       },
     });
   } else if (update instanceof GramJs.UpdateReadHistoryOutbox) {
@@ -538,6 +534,7 @@ export function updater(update: Update) {
       readState: {
         lastReadInboxMessageId: update.maxId,
         unreadCount: update.stillUnreadCount,
+        hasUnreadMark: undefined,
       },
     });
   } else if (update instanceof GramJs.UpdateReadChannelOutbox) {
@@ -654,6 +651,13 @@ export function updater(update: Update) {
       id: buildApiPeerId(update.chatId, 'chat'),
       deletedMemberId: buildApiPeerId(update.userId, 'user'),
     });
+  } else if (update instanceof GramJs.UpdateChatParticipantRank) {
+    sendApiUpdate({
+      '@type': 'updateChatParticipantRank',
+      id: buildApiPeerId(update.chatId, 'chat'),
+      userId: buildApiPeerId(update.userId, 'user'),
+      rank: update.rank,
+    });
   } else if (
     update instanceof GramJs.UpdatePinnedMessages
     || update instanceof GramJs.UpdatePinnedChannelMessages
@@ -675,6 +679,9 @@ export function updater(update: Update) {
     const chatId = update instanceof GramJs.UpdateUserTyping
       ? buildApiPeerId(update.userId, 'user')
       : buildApiPeerId(update.chatId, 'chat');
+    const peerId = update instanceof GramJs.UpdateUserTyping
+      ? buildApiPeerId(update.userId, 'user')
+      : getApiChatIdFromMtpPeer(update.fromId);
 
     const threadId = update instanceof GramJs.UpdateUserTyping ? update.topMsgId : undefined;
 
@@ -698,16 +705,19 @@ export function updater(update: Update) {
       sendApiUpdate({
         '@type': 'updateChatTypingStatus',
         id: chatId,
+        peerId,
         threadId,
         typingStatus: buildChatTypingStatus(update),
       });
     }
   } else if (update instanceof GramJs.UpdateChannelUserTyping) {
     const id = buildApiPeerId(update.channelId, 'channel');
+    const peerId = getApiChatIdFromMtpPeer(update.fromId);
 
     sendApiUpdate({
       '@type': 'updateChatTypingStatus',
       id,
+      peerId,
       threadId: update.topMsgId,
       typingStatus: buildChatTypingStatus(update),
     });
@@ -1039,6 +1049,8 @@ export function updater(update: Update) {
     });
   } else if (update instanceof GramJs.UpdateConfig) {
     sendApiUpdate({ '@type': 'updateConfig' });
+  } else if (update instanceof GramJs.UpdateAiComposeTones) {
+    sendApiUpdate({ '@type': 'updateAiComposeTones' });
   } else if (update instanceof GramJs.UpdatePinnedForumTopic) {
     sendApiUpdate({
       '@type': 'updatePinnedTopic',

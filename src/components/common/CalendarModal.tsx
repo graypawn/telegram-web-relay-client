@@ -1,5 +1,3 @@
-import type { FC } from '../../lib/teact/teact';
-import type React from '../../lib/teact/teact';
 import {
   memo, useCallback, useEffect, useMemo, useRef, useState,
 } from '../../lib/teact/teact';
@@ -11,7 +9,7 @@ import type { RepeatedMessageMode } from '../../util/scheduledMessages';
 import { MAX_INT_32 } from '../../config';
 import { selectIsCurrentUserPremium } from '../../global/selectors';
 import buildClassName from '../../util/buildClassName';
-import { formatDateToString, formatTime, getDayStart } from '../../util/dates/dateFormat';
+import { formatDateToString, formatTime, getDayStart } from '../../util/dates/oldDateFormat';
 import { ALL_REPEAT_MODES, getScheduleRepeatModeText, TEST_SERVER_ONLY_MODES } from '../../util/scheduledMessages';
 
 import useContextMenuHandlers from '../../hooks/useContextMenuHandlers';
@@ -65,7 +63,7 @@ const WEEKDAY_LETTERS = [
   'lng_weekday7',
 ];
 
-const CalendarModal: FC<OwnProps & StateProps> = ({
+const CalendarModal = ({
   selectedAt,
   minAt,
   maxAt,
@@ -84,7 +82,7 @@ const CalendarModal: FC<OwnProps & StateProps> = ({
   onSubmit,
   onDateChange,
   onSecondButtonClick,
-}) => {
+}: OwnProps & StateProps) => {
   const { showNotification } = getActions();
 
   const menuRef = useRef<HTMLDivElement>();
@@ -92,6 +90,7 @@ const CalendarModal: FC<OwnProps & StateProps> = ({
 
   const oldLang = useOldLang();
   const lang = useLang();
+  // eslint-disable-next-line @eslint-react/purity
   const now = new Date();
 
   const {
@@ -204,7 +203,7 @@ const CalendarModal: FC<OwnProps & StateProps> = ({
         message: lang('MessageScheduledRepeatPremium'),
         action: {
           action: 'openPremiumModal',
-          payload: { },
+          payload: {},
         },
         actionText: lang('PremiumMore'),
       });
@@ -213,20 +212,32 @@ const CalendarModal: FC<OwnProps & StateProps> = ({
     handleContextMenu(e);
   });
 
-  function handlePrevMonth() {
+  function handlePrevMonth(e: React.MouseEvent) {
     setCurrentMonthAndYear((d) => {
       const dateCopy = new Date(d);
-      dateCopy.setMonth(dateCopy.getMonth() - 1);
-
+      if (e.shiftKey) {
+        dateCopy.setFullYear(dateCopy.getFullYear() - 1);
+        if (dateCopy < minDate) {
+          return new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+        }
+      } else {
+        dateCopy.setMonth(dateCopy.getMonth() - 1);
+      }
       return dateCopy;
     });
   }
 
-  function handleNextMonth() {
+  function handleNextMonth(e: React.MouseEvent) {
     setCurrentMonthAndYear((d) => {
       const dateCopy = new Date(d);
-      dateCopy.setMonth(dateCopy.getMonth() + 1);
-
+      if (e.shiftKey) {
+        dateCopy.setFullYear(dateCopy.getFullYear() + 1);
+        if (dateCopy > maxDate) {
+          return new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+        }
+      } else {
+        dateCopy.setMonth(dateCopy.getMonth() + 1);
+      }
       return dateCopy;
     });
   }
@@ -371,6 +382,7 @@ const CalendarModal: FC<OwnProps & StateProps> = ({
       onEnter={handleSubmit}
       dialogRef={dialogRef}
       hasAbsoluteCloseButton
+      isNativeDialog
     >
       <div className="container">
         <div className="month-selector">
@@ -387,7 +399,9 @@ const CalendarModal: FC<OwnProps & StateProps> = ({
             color="translucent"
             iconName="previous"
             disabled={shouldDisablePrevMonth}
-            onClick={!shouldDisablePrevMonth ? handlePrevMonth : undefined}
+            noFastClick
+            noPreventDefault
+            onClick={shouldDisablePrevMonth ? undefined : handlePrevMonth}
           />
 
           <Button
@@ -396,7 +410,9 @@ const CalendarModal: FC<OwnProps & StateProps> = ({
             color="translucent"
             iconName="next"
             disabled={shouldDisableNextMonth}
-            onClick={!shouldDisableNextMonth ? handleNextMonth : undefined}
+            noFastClick
+            noPreventDefault
+            onClick={shouldDisableNextMonth ? undefined : handleNextMonth}
           />
         </div>
       </div>
@@ -405,35 +421,53 @@ const CalendarModal: FC<OwnProps & StateProps> = ({
         <div className="calendar-grid">
           {WEEKDAY_LETTERS.map((day) => (
             <div className="day-button faded weekday">
-              <span>{oldLang(day)}</span>
+              {oldLang(day)}
             </div>
           ))}
           {prevMonthGrid.map((gridDate) => (
-            <div className="day-button disabled"><span>{gridDate}</span></div>
-          ))}
-          {currentMonthGrid.map((gridDate) => (
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => handleDateSelect(gridDate)}
-              className={buildClassName(
-                'day-button',
-                'div-button',
-                isDisabledDay(
-                  currentYear, currentMonth, gridDate, minDate, maxDate,
-                )
-                  ? 'disabled'
-                  : gridDate ? 'clickable' : '',
-                selectedDay === formatDay(currentYear, currentMonth, gridDate) && 'selected',
-              )}
+            <Button
+              key={`prev-month-${gridDate}`}
+              round
+              size="smaller"
+              color="translucent"
+              disabled
             >
-              {Boolean(gridDate) && (
-                <span>{gridDate}</span>
-              )}
-            </div>
+              {gridDate}
+            </Button>
           ))}
+          {currentMonthGrid.map((gridDate) => {
+            const isSelected = selectedDay === formatDay(currentYear, currentMonth, gridDate);
+            return (
+              <Button
+                key={`current-month-${gridDate}`}
+                round
+                autoFocus={isSelected}
+                ariaSelected={isSelected}
+                onClick={() => handleDateSelect(gridDate)}
+                disabled={isDisabledDay(
+                  currentYear, currentMonth, gridDate, minDate, maxDate,
+                )}
+                noFastClick
+                noPreventDefault
+                nonInteractive={!gridDate}
+                size="smaller"
+                color={isSelected ? 'primary' : 'translucent'}
+                className={buildClassName('day-button div-button', isSelected && 'selected')}
+              >
+                {gridDate}
+              </Button>
+            );
+          })}
           {nextMonthGrid.map((gridDate) => (
-            <div className="day-button disabled"><span>{gridDate}</span></div>
+            <Button
+              key={`next-month-${gridDate}`}
+              round
+              size="smaller"
+              color="translucent"
+              disabled
+            >
+              {gridDate}
+            </Button>
           ))}
         </div>
       </div>

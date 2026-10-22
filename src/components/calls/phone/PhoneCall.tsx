@@ -9,7 +9,7 @@ import type { ApiPhoneCall, ApiUser } from '../../../api/types';
 
 import {
   getStreams, IS_SCREENSHARE_SUPPORTED, switchCameraInputP2p, toggleStreamP2p,
-} from '../../../lib/secret-sauce';
+} from '../../../lib/vibecalls';
 import { selectTabState } from '../../../global/selectors';
 import { selectPhoneCallUser } from '../../../global/selectors/calls';
 import {
@@ -18,7 +18,7 @@ import {
   IS_REQUEST_FULLSCREEN_SUPPORTED,
 } from '../../../util/browser/windowEnvironment';
 import buildClassName from '../../../util/buildClassName';
-import { formatMediaDuration } from '../../../util/dates/dateFormat';
+import { formatMediaDuration } from '../../../util/dates/oldDateFormat';
 import { getServerTime } from '../../../util/serverTime';
 import { LOCAL_TGS_URLS } from '../../common/helpers/animatedAssets';
 import renderText from '../../common/helpers/renderText';
@@ -59,42 +59,56 @@ const PhoneCall = ({
   const [isFullscreen, openFullscreen, closeFullscreen] = useFlag();
   const { isMobile } = useAppLayout();
 
-  const toggleFullscreen = useCallback(() => {
-    if (isFullscreen) {
-      closeFullscreen();
+  const isOpen = Boolean(phoneCall && phoneCall.state !== 'discarded' && !isCallPanelVisible);
+
+  const exitFullscreenIfNeeded = useCallback(() => {
+    if (document.fullscreenElement === containerRef.current) {
+      void document.exitFullscreen().catch(() => undefined).then(closeFullscreen);
     } else {
-      openFullscreen();
+      closeFullscreen();
     }
-  }, [closeFullscreen, isFullscreen, openFullscreen]);
+  }, [closeFullscreen]);
 
   const handleToggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
 
     if (isFullscreen) {
-      document.exitFullscreen().then(closeFullscreen);
+      exitFullscreenIfNeeded();
     } else {
-      containerRef.current.requestFullscreen().then(openFullscreen);
+      void containerRef.current.requestFullscreen().then(openFullscreen).catch(() => undefined);
     }
-  }, [closeFullscreen, isFullscreen, openFullscreen]);
+  }, [exitFullscreenIfNeeded, isFullscreen, openFullscreen]);
 
   useEffect(() => {
     if (!IS_REQUEST_FULLSCREEN_SUPPORTED) return undefined;
-    const container = containerRef.current;
-    if (!container) return undefined;
 
-    container.addEventListener('fullscreenchange', toggleFullscreen);
+    const handleFullscreenChange = () => {
+      if (document.fullscreenElement === containerRef.current) {
+        openFullscreen();
+      } else {
+        closeFullscreen();
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     return () => {
-      container.removeEventListener('fullscreenchange', toggleFullscreen);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [toggleFullscreen]);
+  }, [closeFullscreen, openFullscreen]);
+
+  useEffect(() => {
+    if (isOpen || !isFullscreen) return;
+
+    exitFullscreenIfNeeded();
+  }, [exitFullscreenIfNeeded, isFullscreen, isOpen]);
 
   const handleClose = useCallback(() => {
     toggleGroupCallPanel();
     if (isFullscreen) {
-      closeFullscreen();
+      exitFullscreenIfNeeded();
     }
-  }, [closeFullscreen, isFullscreen, toggleGroupCallPanel]);
+  }, [exitFullscreenIfNeeded, isFullscreen, toggleGroupCallPanel]);
 
   const isDiscarded = phoneCall?.state === 'discarded';
   const isBusy = phoneCall?.reason === 'busy';
@@ -161,9 +175,9 @@ const PhoneCall = ({
   const hasPresentation = phoneCall?.screencastState === 'active';
 
   const streams = getStreams();
-  const hasOwnAudio = streams?.ownAudio?.getTracks()[0].enabled;
-  const hasOwnPresentation = streams?.ownPresentation?.getTracks()[0].enabled;
-  const hasOwnVideo = streams?.ownVideo?.getTracks()[0].enabled;
+  const hasOwnAudio = streams?.ownAudio?.getTracks()?.[0]?.enabled ?? false;
+  const hasOwnPresentation = streams?.ownPresentation?.getTracks()?.[0]?.enabled ?? false;
+  const hasOwnVideo = streams?.ownVideo?.getTracks()?.[0]?.enabled ?? false;
 
   const [isHidingPresentation, startHidingPresentation, stopHidingPresentation] = useFlag();
   const [isHidingVideo, startHidingVideo, stopHidingVideo] = useFlag();
@@ -218,18 +232,23 @@ const PhoneCall = ({
 
   useEffect(() => {
     if (phoneCall?.state === 'discarded') {
-      setTimeout(hangUp, 250);
+      const timeout = setTimeout(hangUp, 250);
+      return () => {
+        clearTimeout(timeout);
+      };
     }
-  }, [hangUp, phoneCall?.reason, phoneCall?.state]);
+    return undefined;
+  }, [phoneCall?.reason, phoneCall?.state]);
 
   return (
     <Modal
-      isOpen={phoneCall && phoneCall?.state !== 'discarded' && !isCallPanelVisible}
+      isOpen={isOpen}
       onClose={handleClose}
       className={buildClassName(
         styles.root,
         isMobile && styles.singleColumn,
       )}
+      dialogClassName={buildClassName(isFullscreen && styles.fullscreenDialog)}
       dialogRef={containerRef}
     >
       <Avatar
@@ -245,23 +264,23 @@ const PhoneCall = ({
         className={buildClassName(
           styles.secondVideo,
           !isHidingPresentation && hasOwnPresentation && styles.visible,
-          isFullscreen && styles.fullscreen,
+          hasOwnPresentation && isFullscreen && styles.fullscreen,
         )}
         muted
         autoPlay
         playsInline
-        srcObject={streams?.ownPresentation}
+        srcObject={hasOwnPresentation ? streams?.ownPresentation : undefined}
       />
       <video
         className={buildClassName(
           styles.secondVideo,
           !isHidingVideo && hasOwnVideo && styles.visible,
-          isFullscreen && styles.fullscreen,
+          hasOwnVideo && isFullscreen && styles.fullscreen,
         )}
         muted
         autoPlay
         playsInline
-        srcObject={streams?.ownVideo}
+        srcObject={hasOwnVideo ? streams?.ownVideo : undefined}
       />
       <div className={styles.header}>
         {IS_REQUEST_FULLSCREEN_SUPPORTED && (
