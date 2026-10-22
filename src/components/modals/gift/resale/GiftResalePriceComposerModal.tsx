@@ -9,8 +9,9 @@ import {
   selectStarsGiftResaleCommission,
   selectTonGiftResaleCommission,
 } from '../../../../global/selectors';
-import { convertTonFromNanos, convertTonToNanos } from '../../../../util/formatCurrency';
-import { convertTonToUsd, formatCurrencyAsString } from '../../../../util/formatCurrency';
+import {
+  convertTonFromNanos, convertTonToNanos, convertTonToUsd, formatCurrencyAsString,
+} from '../../../../util/formatCurrency';
 import { formatStarsAsIcon, formatStarsAsText, formatTonAsIcon,
   formatTonAsText } from '../../../../util/localization/format';
 
@@ -167,7 +168,7 @@ const GiftResalePriceComposerModal = ({
         {lang('OnlyAcceptTONDescription')}
       </div>
 
-      <Button noForcedUpperCase disabled={!isPriceCorrect} onClick={handleSellGift}>
+      <Button inline noForcedUpperCase disabled={!isPriceCorrect} onClick={handleSellGift}>
         {isPriceCorrect && lang('ButtonSellGift', {
           stars: isPriceInTon ? formatTonAsIcon(lang, price)
             : formatStarsAsIcon(lang, price, { asFont: true }),

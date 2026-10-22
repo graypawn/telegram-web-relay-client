@@ -3,11 +3,15 @@ import { withGlobal } from '../../global';
 
 import type { TabState } from '../../global/types';
 
-import { selectTabState } from '../../global/selectors';
+import { selectCanAnimateInterface, selectTabState } from '../../global/selectors';
 import { pick } from '../../util/iteratees';
+
+import useCurrentOrPrev from '../../hooks/useCurrentOrPrev';
+import useShowTransition from '../../hooks/useShowTransition';
 
 import VerificationMonetizationModal from '../common/VerificationMonetizationModal.async';
 import WebAppsCloseConfirmationModal from '../main/WebAppsCloseConfirmationModal.async';
+import AiMessageEditorModal from '../middle/composer/AiMessageEditorModal/AiMessageEditorModal.async';
 import AboutAdsModal from './aboutAds/AboutAdsModal.async';
 import AgeVerificationModal from './ageVerification/AgeVerificationModal.async';
 import AttachBotInstallModal from './attachBotInstall/AttachBotInstallModal.async';
@@ -18,6 +22,7 @@ import ChatlistModal from './chatlist/ChatlistModal.async';
 import CocoonModal from './cocoon/CocoonModal.async';
 import CollectibleInfoModal from './collectible/CollectibleInfoModal.async';
 import DeleteAccountModal from './deleteAccount/DeleteAccountModal.async';
+import DisableSharingAboutModal from './disableSharing/DisableSharingAboutModal.async';
 import EmojiStatusAccessModal from './emojiStatusAccess/EmojiStatusAccessModal.async';
 import FrozenAccountModal from './frozenAccount/FrozenAccountModal.async';
 import AboutStarGiftModal from './gift/AboutStarGiftModal.async';
@@ -53,11 +58,14 @@ import MapModal from './map/MapModal.async';
 import OneTimeMediaModal from './oneTimeMedia/OneTimeMediaModal.async';
 import PaidReactionModal from './paidReaction/PaidReactionModal.async';
 import PasskeyModal from './passkey/PasskeyModal.async';
+import PollModal from './poll/PollModal.async';
 import PreparedMessageModal from './preparedMessage/PreparedMessageModal.async';
 import PriceConfirmModal from './priceConfirm/PriceConfirmModal.async';
 import ProfileRatingModal from './profileRating/ProfileRatingModal.async';
 import QuickChatPickerModal from './quickChatPicker/QuickChatPickerModal.async';
 import QuickPreviewModal from './quickPreview/QuickPreviewModal.async';
+import EditRankModal from './rank/EditRankModal.async';
+import RankModal from './rank/RankModal.async';
 import ReportAdModal from './reportAd/ReportAdModal.async';
 import ReportModal from './reportModal/ReportModal.async';
 import SharePreparedMessageModal from './sharePreparedMessage/SharePreparedMessageModal.async';
@@ -77,6 +85,7 @@ import WebAppModal from './webApp/WebAppModal.async';
 
 // `Pick` used only to provide tab completion
 type ModalKey = keyof Pick<TabState,
+  'aiMessageEditorModal' |
   'giftCodeModal' |
   'boostModal' |
   'chatlistModal' |
@@ -92,6 +101,7 @@ type ModalKey = keyof Pick<TabState,
   'starsPayment' |
   'starsTransactionModal' |
   'paidReactionModal' |
+  'pollModal' |
   'suggestMessageModal' |
   'suggestedPostApprovalModal' |
   'webApps' |
@@ -132,6 +142,7 @@ type ModalKey = keyof Pick<TabState,
   'giftDescriptionRemoveModal' |
   'giftOfferAcceptModal' |
   'chatRefundModal' |
+  'disableSharingAboutModal' |
   'priceConfirmModal' |
   'isFrozenAccountModalOpen' |
   'deleteAccountModal' |
@@ -144,22 +155,73 @@ type ModalKey = keyof Pick<TabState,
   'leaveGroupModal' |
   'isTwoFaCheckModalOpen' |
   'isQuickChatPickerOpen' |
-  'isCocoonModalOpen'
+  'isCocoonModalOpen' |
+  'editRankModal' |
+  'rankModal'
 >;
+type WrappedModalKey = 'pollModal';
+type LegacyModalKey = Exclude<ModalKey, WrappedModalKey>;
 
-type StateProps = {
+type ModalStateProps = {
   [K in ModalKey]?: TabState[K];
 };
-type ModalRegistry = {
-  [K in ModalKey]: FC<{
+type StateProps = ModalStateProps & {
+  shouldAnimateInterface: boolean;
+};
+type LegacyModalRegistry = {
+  [K in LegacyModalKey]: FC<{
     modal: TabState[K];
+  }>;
+};
+type WrappedModalRegistry = {
+  [K in WrappedModalKey]: FC<{
+    modal: NonNullable<TabState[K]>;
+    isOpen: boolean;
   }>;
 };
 type Entries<T> = {
   [K in keyof T]: [K, T[K]];
 }[keyof T][];
 
-const MODALS: ModalRegistry = {
+const POLL_MODAL_CLOSE_DURATION = 200;
+const WRAPPED_MODAL_CLOSE_DURATIONS: Record<WrappedModalKey, number> = {
+  pollModal: POLL_MODAL_CLOSE_DURATION,
+};
+
+type WrappedModalBoundaryProps<T> = {
+  modal: T;
+  ModalComponent: FC<{
+    modal: NonNullable<T>;
+    isOpen: boolean;
+  }>;
+  closeDuration: number;
+  shouldAnimateInterface: boolean;
+};
+
+const WrappedModalBoundary = <T,>({
+  modal,
+  ModalComponent,
+  closeDuration,
+  shouldAnimateInterface,
+}: WrappedModalBoundaryProps<T>) => {
+  const isOpen = Boolean(modal);
+  const renderingModal = useCurrentOrPrev(modal, true);
+  const { shouldRender } = useShowTransition({
+    isOpen,
+    withShouldRender: true,
+    closeDuration,
+    noCloseTransition: !shouldAnimateInterface,
+  });
+
+  if (!shouldRender || !renderingModal) {
+    return undefined;
+  }
+
+  return <ModalComponent modal={renderingModal} isOpen={isOpen} />;
+};
+
+const LEGACY_MODALS: LegacyModalRegistry = {
+  aiMessageEditorModal: AiMessageEditorModal,
   giftCodeModal: GiftCodeModal,
   boostModal: BoostModal,
   chatlistModal: ChatlistModal,
@@ -215,6 +277,7 @@ const MODALS: ModalRegistry = {
   giftDescriptionRemoveModal: GiftDescriptionRemoveModal,
   giftOfferAcceptModal: GiftOfferAcceptModal,
   chatRefundModal: ChatRefundModal,
+  disableSharingAboutModal: DisableSharingAboutModal,
   priceConfirmModal: PriceConfirmModal,
   isFrozenAccountModalOpen: FrozenAccountModal,
   deleteAccountModal: DeleteAccountModal,
@@ -228,19 +291,44 @@ const MODALS: ModalRegistry = {
   isTwoFaCheckModalOpen: TwoFaCheckModal,
   isQuickChatPickerOpen: QuickChatPickerModal,
   isCocoonModalOpen: CocoonModal,
+  editRankModal: EditRankModal,
+  rankModal: RankModal,
 };
-const MODAL_KEYS = Object.keys(MODALS) as ModalKey[];
-const MODAL_ENTRIES = Object.entries(MODALS) as Entries<ModalRegistry>;
+const WRAPPED_MODALS: WrappedModalRegistry = {
+  pollModal: PollModal,
+};
+
+const LEGACY_MODAL_KEYS = Object.keys(LEGACY_MODALS) as LegacyModalKey[];
+const WRAPPED_MODAL_KEYS = Object.keys(WRAPPED_MODALS) as WrappedModalKey[];
+const MODAL_KEYS = [...LEGACY_MODAL_KEYS, ...WRAPPED_MODAL_KEYS] as ModalKey[];
+
+const LEGACY_MODAL_ENTRIES = Object.entries(LEGACY_MODALS) as Entries<LegacyModalRegistry>;
+const WRAPPED_MODAL_ENTRIES = Object.entries(WRAPPED_MODALS) as Entries<WrappedModalRegistry>;
 
 const ModalContainer = (modalProps: StateProps) => {
-  return MODAL_ENTRIES.map(([key, ModalComponent]) => (
-    // @ts-ignore -- TS does not preserve tuple types in `map` callbacks
-    <ModalComponent key={key} modal={modalProps[key]} />
-  ));
+  const { shouldAnimateInterface } = modalProps;
+
+  return [
+    ...LEGACY_MODAL_ENTRIES.map(([key, ModalComponent]) => (
+      // @ts-ignore -- TS does not preserve tuple types in `map` callbacks
+      <ModalComponent key={key} modal={modalProps[key]} />
+    )),
+    ...WRAPPED_MODAL_ENTRIES.map(([key, ModalComponent]) => (
+      // @ts-ignore -- TS does not preserve tuple types in `map` callbacks
+      <WrappedModalBoundary
+        key={key}
+        modal={modalProps[key]}
+        ModalComponent={ModalComponent}
+        closeDuration={WRAPPED_MODAL_CLOSE_DURATIONS[key]}
+        shouldAnimateInterface={shouldAnimateInterface}
+      />
+    )),
+  ];
 };
 
 export default memo(withGlobal(
-  (global): Complete<StateProps> => (
-    pick(selectTabState(global), MODAL_KEYS) as Complete<StateProps>
-  ),
+  (global): Complete<StateProps> => ({
+    ...(pick(selectTabState(global), MODAL_KEYS) as Complete<ModalStateProps>),
+    shouldAnimateInterface: selectCanAnimateInterface(global),
+  }),
 )(ModalContainer));

@@ -66,7 +66,9 @@ const ConfirmDialog: FC<OwnProps> = ({
       header={header}
       isOpen={isOpen}
       onClose={onClose}
+      isNativeDialog
       onCloseAnimationEnd={onCloseAnimationEnd}
+      noTitleAutoFocus
     >
       {text && text.split('\\n').map((textPart) => (
         <p>{textPart}</p>
@@ -80,13 +82,19 @@ const ConfirmDialog: FC<OwnProps> = ({
         <Button
           className="confirm-dialog-button"
           isText
+          inline
           onClick={confirmHandler}
           color={confirmIsDestructive ? 'danger' : 'primary'}
           disabled={isConfirmDisabled}
+          autoFocus={!confirmIsDestructive}
         >
           {confirmLabel || lang('GeneralConfirm')}
         </Button>
-        {!isOnlyConfirm && <Button className="confirm-dialog-button" isText onClick={onClose}>{lang('Cancel')}</Button>}
+        {!isOnlyConfirm && (
+          <Button className="confirm-dialog-button" isText onClick={onClose} autoFocus={confirmIsDestructive}>
+            {lang('Cancel')}
+          </Button>
+        )}
       </div>
     </Modal>
   );

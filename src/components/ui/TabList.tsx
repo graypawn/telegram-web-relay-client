@@ -1,112 +1,241 @@
-import type { ElementRef, TeactNode } from '../../lib/teact/teact';
-import { memo, useEffect, useRef } from '../../lib/teact/teact';
+import type { TeactNode } from '../../lib/teact/teact';
+import { memo, useEffect, useRef, useState } from '../../lib/teact/teact';
 
-import type { ApiMessageEntityCustomEmoji } from '../../api/types';
+import type { IAnchorPosition } from '../../types';
 import type { MenuItemContextAction } from './ListItem';
+import type { TabWithProperties } from './SquareTabList';
 
-import animateHorizontalScroll from '../../util/animateHorizontalScroll';
-import { IS_ANDROID, IS_IOS } from '../../util/browser/windowEnvironment';
+export type { TabWithProperties };
+
 import buildClassName from '../../util/buildClassName';
+import renderText from '../common/helpers/renderText';
 
+import useFlag from '../../hooks/useFlag';
 import useHorizontalScroll from '../../hooks/useHorizontalScroll';
-import useLang from '../../hooks/useLang';
-import usePreviousDeprecated from '../../hooks/usePreviousDeprecated';
+import useLastCallback from '../../hooks/useLastCallback';
+import useResizeObserver from '../../hooks/useResizeObserver';
+import useScrollToActiveTab from '../../hooks/useScrollToActiveTab';
 
-import Tab from './Tab';
+import CustomEmoji from '../common/CustomEmoji';
+import Icon from '../common/icons/Icon';
+import Menu from './Menu';
+import MenuItem from './MenuItem';
+import MenuSeparator from './MenuSeparator';
 
-import './TabList.scss';
+import styles from './TabList.module.scss';
 
-export type TabWithProperties = {
-  id?: number;
-  title: TeactNode;
-  badgeCount?: number;
-  isBlocked?: boolean;
-  isBadgeActive?: boolean;
-  contextActions?: MenuItemContextAction[];
-  emoticon?: string | ApiMessageEntityCustomEmoji;
-  noTitleAnimations?: boolean;
-};
+const EMOJI_SIZE = 20;
 
 type OwnProps = {
   tabs: readonly TabWithProperties[];
   activeTab: number;
   className?: string;
   tabClassName?: string;
-  contextRootElementSelector?: string;
-  ref?: ElementRef<HTMLDivElement>;
+  indicatorClassName?: string;
+  centered?: boolean;
+  stretched?: boolean;
+  itemAlignment?: 'vertical' | 'horizontal';
+  withFadeMask?: boolean;
+  fadeMaskClassName?: string;
   onSwitchTab: (index: number) => void;
+  renderExtra?: (tab: TabWithProperties, index: number) => TeactNode;
 };
-
-const TAB_SCROLL_THRESHOLD_PX = 16;
-// Should match duration from `--slide-transition` CSS variable
-const SCROLL_DURATION = IS_IOS ? 450 : IS_ANDROID ? 400 : 300;
 
 const TabList = ({
   tabs,
   activeTab,
   className,
   tabClassName,
-  contextRootElementSelector,
-  ref,
+  indicatorClassName,
+  centered,
+  stretched,
+  itemAlignment,
+  withFadeMask,
+  fadeMaskClassName,
+  renderExtra,
   onSwitchTab,
 }: OwnProps) => {
-  let containerRef = useRef<HTMLDivElement>();
-  if (ref) {
-    containerRef = ref;
-  }
-  const previousActiveTab = usePreviousDeprecated(activeTab);
+  const containerRef = useRef<HTMLDivElement>();
+  const clipPathContainerRef = useRef<HTMLDivElement>();
+  const [clipPath, setClipPath] = useState<string>('');
+  const [isMenuOpen, openMenu, closeMenu] = useFlag();
+  const [menuAnchor, setMenuAnchor] = useState<IAnchorPosition | undefined>();
+  const [menuTabIndex, setMenuTabIndex] = useState<number | undefined>();
+  const menuTargetRef = useRef<HTMLElement>();
 
-  const lang = useLang();
+  useHorizontalScroll(containerRef, !tabs.length, true);
 
-  useHorizontalScroll(containerRef, undefined, true);
+  const updateClipPath = useLastCallback(() => {
+    const clipPathContainer = clipPathContainerRef.current;
+    const activeTabEl = activeTab >= 0 && clipPathContainer?.childNodes[activeTab] as HTMLElement | undefined;
 
-  // Scroll container to place active tab in the center
+    if (clipPathContainer && activeTabEl && clipPathContainer.offsetWidth > 0) {
+      const { offsetLeft, offsetWidth } = activeTabEl;
+      const containerWidth = clipPathContainer.offsetWidth;
+      const left = (offsetLeft / containerWidth * 100).toFixed(1);
+      const right = ((containerWidth - (offsetLeft + offsetWidth)) / containerWidth * 100).toFixed(1);
+
+      setClipPath(`inset(0.25rem ${right}% 0.25rem ${left}% round var(--tab-radius))`);
+    } else if (activeTab < 0) {
+      setClipPath('inset(0 100% 0 100%)');
+    }
+  });
+
   useEffect(() => {
-    const container = containerRef.current!;
-    const { scrollWidth, offsetWidth, scrollLeft } = container;
-    if (scrollWidth <= offsetWidth) {
-      return;
-    }
+    updateClipPath();
+  }, [activeTab, tabs]);
 
-    const activeTabElement = container.childNodes[activeTab] as HTMLElement | null;
-    if (!activeTabElement) {
-      return;
-    }
+  useResizeObserver(clipPathContainerRef, updateClipPath);
 
-    const { offsetLeft: activeTabOffsetLeft, offsetWidth: activeTabOffsetWidth } = activeTabElement;
-    const newLeft = activeTabOffsetLeft - (offsetWidth / 2) + (activeTabOffsetWidth / 2);
+  useScrollToActiveTab(containerRef, activeTab);
 
-    // Prevent scrolling by only a couple of pixels, which doesn't look smooth
-    if (Math.abs(newLeft - scrollLeft) < TAB_SCROLL_THRESHOLD_PX) {
-      return;
-    }
+  const handleTabClick = useLastCallback((index: number) => {
+    onSwitchTab(index);
+  });
 
-    animateHorizontalScroll(container, newLeft, SCROLL_DURATION);
-  }, [activeTab]);
+  const handleContextMenu = useLastCallback((index: number, e: React.MouseEvent) => {
+    const actions = tabs[index]?.contextActions;
+    if (!actions?.length) return;
+    e.preventDefault();
+    menuTargetRef.current = e.currentTarget as HTMLElement;
+    setMenuTabIndex(index);
+    setMenuAnchor({ x: e.clientX, y: e.clientY });
+    openMenu();
+  });
+
+  const handleMenuClose = useLastCallback(() => {
+    closeMenu();
+  });
+
+  const handleMenuHide = useLastCallback(() => {
+    setMenuAnchor(undefined);
+    setMenuTabIndex(undefined);
+  });
+
+  const getTriggerElement = useLastCallback(() => menuTargetRef.current);
+  const getRootElement = useLastCallback(() => containerRef.current);
+  const getMenuElement = useLastCallback(
+    () => containerRef.current?.querySelector<HTMLElement>('.TabList-context-menu .bubble'),
+  );
+  const getLayout = useLastCallback(() => ({ withPortal: true }));
+
+  if (!tabs.length) return undefined;
+
+  const hasContextActions = tabs.some((tab) => tab.contextActions?.length);
+
+  const renderTab = (tab: TabWithProperties, index: number) => {
+    const customEmojiId = tab.customEmojiDocumentId
+      || (typeof tab.emoticon === 'object' ? tab.emoticon.documentId : undefined);
+    const stringEmoticon = typeof tab.emoticon === 'string' ? tab.emoticon : undefined;
+
+    return (
+      <div
+        key={tab.id ?? index}
+        className={buildClassName(
+          styles.tab,
+          tabClassName,
+          itemAlignment === 'vertical' && styles.vertical,
+          stretched && styles.stretched,
+        )}
+        onClick={() => handleTabClick(index)}
+        onContextMenu={hasContextActions ? (e) => handleContextMenu(index, e) : undefined}
+      >
+        {stringEmoticon && <span className={styles.tabEmoji}>{stringEmoticon}</span>}
+        {customEmojiId && (
+          <CustomEmoji
+            documentId={customEmojiId}
+            className={styles.tabEmoji}
+            size={EMOJI_SIZE}
+            shouldNotLoop
+          />
+        )}
+        {tab.icon && <Icon name={tab.icon} className={styles.tabIcon} />}
+        {typeof tab.title === 'string' ? renderText(tab.title) : tab.title}
+        {renderExtra?.(tab, index)}
+        {tab.isBlocked && <Icon name="lock-badge" className={styles.lockIcon} />}
+      </div>
+    );
+  };
+
+  const contextActions = menuTabIndex !== undefined ? tabs[menuTabIndex]?.contextActions : undefined;
+
+  const tabListElement = (
+    <div
+      ref={containerRef}
+      className={buildClassName(
+        'TabList',
+        styles.container,
+        withFadeMask && styles.withFadeMask,
+        centered && styles.centered,
+        itemAlignment === 'vertical' && styles.vertical,
+        className,
+        clipPath && styles.ready,
+      )}
+    >
+      {tabs.map(renderTab)}
+
+      <div
+        ref={clipPathContainerRef}
+        className={buildClassName(styles.activeIndicator,
+          centered && styles.centered,
+          stretched && styles.stretched,
+          indicatorClassName)}
+        style={clipPath ? `clip-path: ${clipPath}` : undefined}
+        aria-hidden
+      >
+        {tabs.map(renderTab)}
+      </div>
+    </div>
+  );
+
+  const menuElement = contextActions && menuAnchor !== undefined && (
+    <Menu
+      isOpen={isMenuOpen}
+      anchor={menuAnchor}
+      getTriggerElement={getTriggerElement}
+      getRootElement={getRootElement}
+      getMenuElement={getMenuElement}
+      getLayout={getLayout}
+      className="TabList-context-menu"
+      autoClose
+      onClose={handleMenuClose}
+      onCloseAnimationEnd={handleMenuHide}
+      withPortal
+    >
+      {contextActions.map((action: MenuItemContextAction) => (
+        ('isSeparator' in action) ? (
+          <MenuSeparator key={action.key || `separator-${contextActions.indexOf(action)}`} />
+        ) : (
+          <MenuItem
+            key={action.title}
+            icon={action.icon}
+            destructive={action.destructive}
+            disabled={!action.handler}
+            onClick={action.handler}
+          >
+            {renderText(action.title)}
+          </MenuItem>
+        )
+      ))}
+    </Menu>
+  );
+
+  if (!withFadeMask) {
+    return (
+      <>
+        {tabListElement}
+        {menuElement}
+      </>
+    );
+  }
 
   return (
-    <div
-      className={buildClassName('TabList', 'no-scrollbar', className)}
-      ref={containerRef}
-      dir={lang.isRtl ? 'rtl' : undefined}
-    >
-      {tabs.map((tab, i) => (
-        <Tab
-          key={tab.id}
-          title={tab.title}
-          isActive={i === activeTab}
-          isBlocked={tab.isBlocked}
-          badgeCount={tab.badgeCount}
-          isBadgeActive={tab.isBadgeActive}
-          previousActiveTab={previousActiveTab}
-          onClick={onSwitchTab}
-          clickArg={i}
-          contextActions={tab.contextActions}
-          contextRootElementSelector={contextRootElementSelector}
-          className={tabClassName}
-        />
-      ))}
-    </div>
+    <>
+      <div className={buildClassName(styles.fadeMaskWrapper, fadeMaskClassName)}>
+        {tabListElement}
+      </div>
+      {menuElement}
+    </>
   );
 };
 

@@ -1,20 +1,17 @@
 import type { Api } from '../../../lib/gramjs';
 import type { TypedBroadcastChannel } from '../../../util/browser/multitab';
 import type {
-  ApiInitialArgs, ApiOnProgress, ApiUpdateAuthorizationStateType, OnApiUpdate,
+  ApiError, ApiInitialArgs, ApiOnProgress, ApiUpdateAuthorizationStateType, OnApiUpdate,
 } from '../../types';
 import type { LocalDb } from '../localDb';
 import type { MethodArgs, MethodResponse, Methods } from '../methods/types';
-import type { OriginPayload, ThenArg, WorkerMessageEvent } from './types';
+import type { OriginPayload, ThenArg } from './types';
 
-import { DEBUG, IGNORE_UNHANDLED_ERRORS, TG2_SESSION_FLAG } from '../../../config';
-import { IS_TAURI } from '../../../util/browser/globalEnvironment';
-import { logDebugMessage } from '../../../util/debugConsole';
+import { DEBUG, TG2_SESSION_FLAG } from '../../../config';
 import Deferred from '../../../util/Deferred';
 import { getCurrentTabId, subscribeToMasterChange } from '../../../util/establishMultitabRole';
 import generateUniqueId from '../../../util/generateUniqueId';
-import { ACCOUNT_SLOT, DATA_BROADCAST_CHANNEL_NAME } from '../../../util/multiaccount';
-import { pause, throttleWithTickEnd } from '../../../util/schedulers';
+import { DATA_BROADCAST_CHANNEL_NAME } from '../../../util/multiaccount';
 import { emitEvent, initSocket, onEvent } from '../../socket/socketClient';
 
 type RequestState = {
@@ -27,16 +24,10 @@ type RequestState = {
 
 type EnsurePromise<T> = Promise<Awaited<T>>;
 
-const HEALTH_CHECK_TIMEOUT = 150;
-const HEALTH_CHECK_MIN_DELAY = 5 * 1000; // 5 sec
 const NO_QUEUE_BEFORE_INIT = new Set(['destroy']);
-
-let worker: Worker | undefined;
 
 const requestStates = new Map<string, RequestState>();
 const requestStatesByCallback = new Map<AnyToVoidFunction, RequestState>();
-
-let pendingPayloads: OriginPayload[] = [];
 
 const savedLocalDb: LocalDb = {
   chats: {},
@@ -56,17 +47,6 @@ subscribeToMasterChange((isMasterTabNew) => {
 
 const channel = new BroadcastChannel(DATA_BROADCAST_CHANNEL_NAME) as TypedBroadcastChannel;
 
-const postMessagesOnTickEnd = throttleWithTickEnd(() => {
-  const payloads = pendingPayloads;
-  pendingPayloads = [];
-  worker?.postMessage({ payloads });
-});
-
-function postMessageOnTickEnd(payload: OriginPayload) {
-  pendingPayloads.push(payload);
-  postMessagesOnTickEnd();
-}
-
 export function initApiOnMasterTab(initialArgs: ApiInitialArgs) {
   channel.postMessage({
     type: 'initApi',
@@ -75,15 +55,11 @@ export function initApiOnMasterTab(initialArgs: ApiInitialArgs) {
   });
 }
 
-let updateCallback: OnApiUpdate;
-
 let localApiRequestsQueue: { fnName: any; args: any; deferred: Deferred<any> }[] = [];
 let apiRequestsQueue: { fnName: any; args: any; deferred: Deferred<any> }[] = [];
 let isInited = false;
 
 export function initApi(onUpdate: OnApiUpdate, initialArgs: ApiInitialArgs) {
-  updateCallback = onUpdate;
-
   if (!isMasterTab) {
     initApiOnMasterTab(initialArgs);
     return Promise.resolve();
@@ -254,46 +230,8 @@ export function cancelApiProgress(progressCallback: ApiOnProgress) {
   }
 }
 
-export function cancelApiProgressMaster(messageId: string) {
-  postMessageOnTickEnd({
-    type: 'cancelProgress',
-    messageId,
-  });
-}
-
-function subscribeToWorker(onUpdate: OnApiUpdate) {
-  worker?.addEventListener('message', ({ data }: WorkerMessageEvent) => {
-    data?.payloads.forEach((payload) => {
-      if (payload.type === 'updates') {
-        let DEBUG_startAt: number | undefined;
-        if (DEBUG) {
-          DEBUG_startAt = performance.now();
-        }
-
-        payload.updates.forEach(onUpdate);
-
-        if (DEBUG) {
-          const duration = performance.now() - DEBUG_startAt!;
-          if (duration > 5) {
-            // eslint-disable-next-line no-console
-            console.warn(`[API] Slow updates processing: ${payload.updates.length} updates in ${duration} ms`);
-          }
-        }
-      } else if (payload.type === 'methodResponse') {
-        handleMethodResponse(payload);
-      } else if (payload.type === 'methodCallback') {
-        handleMethodCallback(payload);
-      } else if (payload.type === 'unhandledError') {
-        const message = payload.error?.message;
-        if (message && IGNORE_UNHANDLED_ERRORS.has(message)) return;
-        throw new Error(message);
-      } else if (payload.type === 'sendBeacon') {
-        navigator.sendBeacon(payload.url, payload.data);
-      } else if (payload.type === 'debugLog') {
-        logDebugMessage(payload.level, ...payload.args);
-      }
-    });
-  });
+export function cancelApiProgressMaster(_messageId: string) {
+  // TDLib relay requests currently do not expose client-side cancellation.
 }
 
 const recentMessageIds = new Set<number>();
@@ -465,7 +403,7 @@ function subscribeToSocketEvents(onUpdate: OnApiUpdate) {
 export function handleMethodResponse(data: {
   messageId: string;
   response?: ThenArg<MethodResponse<keyof Methods>>;
-  error?: { message: string };
+  error?: Pick<ApiError, 'message' | 'code' | 'hasErrorKey'>;
 }) {
   const requestState = requestStates.get(data.messageId);
   if (requestState) {
@@ -564,11 +502,7 @@ function makeRequest(message: OriginPayload) {
       }
     });
 
-  if (worker) {
-    postMessageOnTickEnd(payload);
-  } else {
-    makeSocketRequest(payload, requestState);
-  }
+  makeSocketRequest(payload, requestState);
 
   return promise;
 }
@@ -605,39 +539,5 @@ function makeSocketRequest(payload: OriginPayload, requestState: RequestState) {
       console.warn('[Connector] Unhandled socket request type:', payload.type);
     }
     requestState.resolve(undefined);
-  }
-}
-
-const startedAt = Date.now();
-
-// Workaround for iOS sometimes stops interacting with worker
-function setupHealthCheck() {
-  window.addEventListener('focus', () => {
-    void ensureWorkerPing();
-    // Sometimes a single check is not enough
-    setTimeout(() => ensureWorkerPing(), 1000);
-  });
-}
-
-async function ensureWorkerPing() {
-  let isResolved = false;
-
-  try {
-    await Promise.race([
-      makeRequest({ type: 'ping' }),
-      pause(HEALTH_CHECK_TIMEOUT)
-        .then(() => (isResolved ? undefined : Promise.reject(new Error('HEALTH_CHECK_TIMEOUT')))),
-    ]);
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error(err);
-
-    if (Date.now() - startedAt >= HEALTH_CHECK_MIN_DELAY) {
-      worker?.terminate();
-      worker = undefined;
-      updateCallback({ '@type': 'requestReconnectApi' });
-    }
-  } finally {
-    isResolved = true;
   }
 }

@@ -6,7 +6,7 @@ import type { ApiStarsAmount, ApiTonAmount } from '../../api/types';
 import { formatStarsAmount } from '../../global/helpers/payments';
 import buildClassName from '../../util/buildClassName';
 import { convertTonFromNanos, convertTonToUsd, formatCurrencyAsString } from '../../util/formatCurrency';
-import { formatStarsAsIcon, formatTonAsIcon, getNextArrowReplacement } from '../../util/localization/format';
+import { formatStarsAsIcon, formatTonAsIcon, NEXT_ARROW_REPLACEMENT } from '../../util/localization/format';
 
 import useIsTopmostBalanceBarModal from '../../hooks/element/useIsTopmostBalanceBarModal';
 import useLang from '../../hooks/useLang';
@@ -18,9 +18,9 @@ import Link from './Link';
 import styles from './ModalStarBalanceBar.module.scss';
 
 export type OwnProps = {
-  onCloseAnimationEnd?: () => void;
   isModalOpen?: true;
   currency?: 'TON' | 'XTR';
+  onCloseAnimationEnd?: () => void;
 };
 
 export type StateProps = {
@@ -73,18 +73,14 @@ function ModalStarBalanceBar({
       <div>
         {isTonMode ? (
           lang('ModalStarsBalanceBarDescription', {
-            stars: formatTonAsIcon(lang, convertTonFromNanos(currentBalance.amount), {
-              className: styles.starIcon,
-            }),
+            stars: formatTonAsIcon(lang, convertTonFromNanos(currentBalance.amount)),
           }, {
             withNodes: true,
             withMarkdown: true,
           })
         ) : (
           lang('ModalStarsBalanceBarDescription', {
-            stars: formatStarsAsIcon(lang, formatStarsAmount(lang, currentBalance as ApiStarsAmount), {
-              className: styles.starIcon,
-            }),
+            stars: formatStarsAsIcon(lang, formatStarsAmount(lang, currentBalance as ApiStarsAmount)),
           }, {
             withNodes: true,
             withMarkdown: true,
@@ -105,7 +101,7 @@ function ModalStarBalanceBar({
           <Link className={styles.getMoreStarsLink} isPrimary onClick={handleGetMoreStars}>
             {lang('GetMoreStarsLinkText', undefined, {
               withNodes: true,
-              specialReplacement: getNextArrowReplacement(),
+              specialReplacement: NEXT_ARROW_REPLACEMENT,
             })}
           </Link>
         )}

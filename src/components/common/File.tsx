@@ -1,30 +1,37 @@
 import type { ElementRef } from '../../lib/teact/teact';
 import {
-  memo, useRef, useState,
+  memo, useRef,
 } from '../../lib/teact/teact';
 
+import type { ApiAttachment, MediaContent } from '../../api/types';
+import type { ObserveFn } from '../../hooks/useIntersectionObserver';
 import type { IconName } from '../../types/icons';
+import type { MenuItemContextAction } from '../ui/ListItem';
 
-import { IS_CANVAS_FILTER_SUPPORTED } from '../../util/browser/windowEnvironment';
 import buildClassName from '../../util/buildClassName';
-import { formatMediaDateTime, formatPastTimeShort } from '../../util/dates/dateFormat';
+import { formatMediaDateTime, formatPastTimeShort } from '../../util/dates/oldDateFormat';
 import { getColorFromExtension } from './helpers/documentInfo';
 import { getDocumentThumbnailDimensions } from './helpers/mediaDimensions';
 import renderText from './helpers/renderText';
 
-import useAppLayout from '../../hooks/useAppLayout';
-import useCanvasBlur from '../../hooks/useCanvasBlur';
+import useContextMenuHandlers from '../../hooks/useContextMenuHandlers';
 import useLang from '../../hooks/useLang';
-import useMediaTransitionDeprecated from '../../hooks/useMediaTransitionDeprecated';
+import useLastCallback from '../../hooks/useLastCallback';
 import useOldLang from '../../hooks/useOldLang';
 import useShowTransitionDeprecated from '../../hooks/useShowTransitionDeprecated';
 
 import Link from '../ui/Link';
+import Menu from '../ui/Menu';
+import MenuItem from '../ui/MenuItem';
+import MenuSeparator from '../ui/MenuSeparator';
 import ProgressSpinner from '../ui/ProgressSpinner';
 import AnimatedFileSize from './AnimatedFileSize';
+import CompactMediaPreview, { canRenderCompactMediaPreview } from './CompactMediaPreview';
 import Icon from './icons/Icon';
 
 import './File.scss';
+
+type FileSize = 'small' | 'medium' | 'large';
 
 type OwnProps = {
   ref?: ElementRef<HTMLDivElement>;
@@ -34,16 +41,18 @@ type OwnProps = {
   size: number;
   timestamp?: number;
   sender?: string;
-  thumbnailDataUri?: string;
-  previewData?: string;
+  previewMedia?: MediaContent;
+  previewAttachment?: ApiAttachment;
+  observeIntersection?: ObserveFn;
   className?: string;
-  smaller?: boolean;
+  previewSize?: FileSize;
   isTransferring?: boolean;
   isUploading?: boolean;
   isSelectable?: boolean;
   isSelected?: boolean;
   transferProgress?: number;
   actionIcon?: IconName;
+  contextActions?: MenuItemContextAction[];
   onClick?: () => void;
   onDateClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
 };
@@ -56,16 +65,18 @@ const File = ({
   extension = '',
   timestamp,
   sender,
-  thumbnailDataUri,
-  previewData,
+  previewMedia,
+  previewAttachment,
   className,
-  smaller,
+  previewSize = 'medium',
   isTransferring,
   isUploading,
   isSelectable,
   isSelected,
   transferProgress,
   actionIcon,
+  contextActions,
+  observeIntersection,
   onClick,
   onDateClick,
 }: OwnProps) => {
@@ -75,12 +86,7 @@ const File = ({
   if (ref) {
     elementRef = ref;
   }
-
-  const { isMobile } = useAppLayout();
-  const [withThumb] = useState(!previewData);
-  const noThumb = Boolean(previewData);
-  const thumbRef = useCanvasBlur(thumbnailDataUri, noThumb, isMobile && !IS_CANVAS_FILTER_SUPPORTED);
-  const thumbClassNames = useMediaTransitionDeprecated(!noThumb);
+  const menuRef = useRef<HTMLDivElement>();
 
   const {
     shouldRender: shouldSpinnerRender,
@@ -89,41 +95,52 @@ const File = ({
 
   const color = getColorFromExtension(extension);
 
-  const { width, height } = getDocumentThumbnailDimensions(smaller);
+  const {
+    isContextMenuOpen, contextMenuAnchor,
+    handleBeforeContextMenu, handleContextMenu,
+    handleContextMenuClose, handleContextMenuHide,
+  } = useContextMenuHandlers(elementRef, !contextActions);
+
+  const getTriggerElement = useLastCallback(() => elementRef.current);
+  const getRootElement = useLastCallback(() => elementRef.current!.closest('.custom-scroll') || document.body);
+  const getMenuElement = useLastCallback(() => menuRef.current);
+  const getLayout = useLastCallback(() => ({ withPortal: true }));
+
+  const { width } = getDocumentThumbnailDimensions(previewSize);
+  const shouldRenderPreview = canRenderCompactMediaPreview(previewMedia, previewAttachment);
 
   const fullClassName = buildClassName(
     'File',
     className,
-    smaller && 'smaller',
+    previewSize !== 'medium' && `size-${previewSize}`,
     onClick && !isUploading && 'interactive',
     isSelected && 'file-is-selected',
+    contextMenuAnchor && 'has-menu-open',
   );
 
   return (
-    <div id={id} ref={elementRef} className={fullClassName} dir={lang.isRtl ? 'rtl' : undefined}>
+    <div
+      id={id}
+      ref={elementRef}
+      className={fullClassName}
+      dir={lang.isRtl ? 'rtl' : undefined}
+      onMouseDown={handleBeforeContextMenu}
+      onContextMenu={contextActions ? handleContextMenu : undefined}
+    >
       {isSelectable && (
         <div className="message-select-control no-selection">
-          {isSelected && <Icon name="select" />}
+          {isSelected && <Icon name="check" className="message-select-control-icon" />}
         </div>
       )}
       <div className="file-icon-container" onClick={isUploading ? undefined : onClick}>
-        {thumbnailDataUri || previewData ? (
-          <div className="file-preview media-inner">
-            <img
-              src={previewData}
-              className="full-media"
-              width={width}
-              height={height}
-              draggable={false}
-              alt=""
-            />
-            {withThumb && (
-              <canvas
-                ref={thumbRef}
-                className={buildClassName('thumbnail', thumbClassNames)}
-              />
-            )}
-          </div>
+        {shouldRenderPreview ? (
+          <CompactMediaPreview
+            className="file-preview media-inner"
+            media={previewMedia}
+            attachment={previewAttachment}
+            size={width}
+            observeIntersectionForLoading={observeIntersection}
+          />
         ) : (
           <div className={`file-icon ${color}`}>
             {extension.length <= 4 && (
@@ -135,7 +152,7 @@ const File = ({
           <div className={buildClassName('file-progress', color, spinnerClassNames)}>
             <ProgressSpinner
               progress={transferProgress}
-              size={smaller ? 's' : 'm'}
+              size={previewSize === 'small' ? 's' : 'm'}
               onClick={isUploading ? onClick : undefined}
             />
           </div>
@@ -167,6 +184,38 @@ const File = ({
       </div>
       {sender && Boolean(timestamp) && (
         <Link onClick={onDateClick}>{formatPastTimeShort(oldLang, timestamp * 1000)}</Link>
+      )}
+      {contextActions && contextMenuAnchor !== undefined && (
+        <Menu
+          ref={menuRef}
+          isOpen={isContextMenuOpen}
+          anchor={contextMenuAnchor}
+          getTriggerElement={getTriggerElement}
+          getRootElement={getRootElement}
+          getMenuElement={getMenuElement}
+          getLayout={getLayout}
+          className="shared-media-context-menu"
+          autoClose
+          onClose={handleContextMenuClose}
+          onCloseAnimationEnd={handleContextMenuHide}
+          withPortal
+        >
+          {contextActions.map((action) => (
+            ('isSeparator' in action) ? (
+              <MenuSeparator key={action.key || 'separator'} />
+            ) : (
+              <MenuItem
+                key={action.title}
+                icon={action.icon}
+                destructive={action.destructive}
+                disabled={!action.handler}
+                onClick={action.handler}
+              >
+                {action.title}
+              </MenuItem>
+            )
+          ))}
+        </Menu>
       )}
     </div>
   );

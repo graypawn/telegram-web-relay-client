@@ -1,2 +1,0 @@
-(self.webpackChunktelegram_web_relay_client=self.webpackChunktelegram_web_relay_client||[]).push([[9141],{10164(e){e.exports=function(e){return{name:"VBScript in HTML",subLanguage:"xml",contains:[{begin:"<%",end:"%>",subLanguage:"vbscript"}]}}}}]);
-//# sourceMappingURL=9141.4d8ed655da0254381b5d.js.map

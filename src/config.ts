@@ -24,9 +24,10 @@ export const PAID_MESSAGES_PURPOSE = 'paid_messages';
 
 export const DEBUG = process.env.APP_ENV !== 'production';
 export const DEBUG_MORE = false;
+export const DEBUG_CALLS = false;
 export const DEBUG_LOG_FILENAME = 'tt-log.json';
 export const STRICTERDOM_ENABLED = DEBUG;
-export const FORCE_FALLBACK_LANG = false;
+export const FORCE_FALLBACK_LANG = DEBUG;
 
 export const BETA_CHANGELOG_URL = 'https://telegra.ph/WebA-Beta-03-20';
 
@@ -64,7 +65,7 @@ export const MEDIA_PROGRESSIVE_CACHE_DISABLED = false;
 export const MEDIA_PROGRESSIVE_CACHE_NAME = 'tt-media-progressive';
 export const MEDIA_CACHE_MAX_BYTES = 512 * 1024; // 512 KB
 export const CUSTOM_BG_CACHE_NAME = 'tt-custom-bg';
-export const LANG_CACHE_NAME = 'tt-lang-packs-v51';
+export const LANG_CACHE_NAME = 'tt-lang-packs-v52';
 export const ASSET_CACHE_NAME = 'tt-assets';
 export const AUTODOWNLOAD_FILESIZE_MB_LIMITS = [1, 5, 10, 50, 100, 500];
 export const DATA_BROADCAST_CHANNEL_PREFIX = 'tt-global';
@@ -119,6 +120,7 @@ export const GLOBAL_SUGGESTED_CHANNELS_ID = 'global';
 // https://github.com/DrKLO/Telegram/blob/51e9947527/TMessagesProj/src/main/java/org/telegram/messenger/MediaDataController.java#L7781
 export const REACTION_UNREAD_SLICE = 100;
 export const MENTION_UNREAD_SLICE = 100;
+export const POLL_UNREAD_SLICE = 100;
 export const TOPICS_SLICE = 20;
 export const TOPICS_SLICE_SECOND_LOAD = 500;
 
@@ -143,6 +145,9 @@ export const ANIMATION_LEVEL_DEFAULT = ANIMATION_LEVEL_MED;
 export const DEFAULT_MESSAGE_TEXT_SIZE_PX = 16;
 export const IOS_DEFAULT_MESSAGE_TEXT_SIZE_PX = 17;
 export const MACOS_DEFAULT_MESSAGE_TEXT_SIZE_PX = 15;
+
+export const NBSP = '\u00A0';
+export const NNBSP = '\u202F';
 
 export const FOLDERS_POSITION_TOP = 'top';
 export const FOLDERS_POSITION_LEFT = 'left';
@@ -250,7 +255,8 @@ export const DEFAULT_TOPIC_ICON_STICKER_ID = 'topic-default-icon';
 export const DEFAULT_STATUS_ICON_ID = 'status-default-icon';
 export const EMOJI_IMG_REGEX = /<img[^>]+alt="([^"]+)"(?![^>]*data-document-id)[^>]*>/gm;
 
-export const BASE_EMOJI_KEYWORD_LANG = 'en';
+export const FALLBACK_LANG_CODE = 'en';
+export const BASE_EMOJI_KEYWORD_LANG = FALLBACK_LANG_CODE;
 
 export const MENU_TRANSITION_DURATION = 200;
 export const SLIDE_TRANSITION_DURATION = 450;
@@ -318,7 +324,7 @@ export const SUPPORTED_TRANSLATION_LANGUAGES = [
 export const RE_LINK_TEMPLATE = '((ftp|https?):\\/\\/)?((www\\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\\.[a-zA-Z][-a-zA-Z0-9]{1,62})\\b([-a-zA-Z0-9()@:%_+.,~#?&/=]*)';
 export const RE_MENTION_TEMPLATE = '(@[\\w\\d_-]+)';
 export const RE_TG_LINK = /^tg:(\/\/)?/i;
-export const RE_TME_LINK = /^(https?:\/\/)?([-a-zA-Z0-9@:%_+~#=]{1,32}\.)?t\.me/i;
+export const RE_TME_LINK = /^(https?:\/\/)?([-a-zA-Z0-9@:%_+~#=]{1,32}\.)?t\.me(?=[:/?#]|$)/i;
 export const RE_TELEGRAM_LINK = /^(https?:\/\/)?telegram\.org\//i;
 export const TME_LINK_PREFIX = 'https://t.me/';
 export const BOT_FATHER_USERNAME = 'botfather';
@@ -376,6 +382,8 @@ export const FRAGMENT_PHONE_CODE = '888';
 export const FRAGMENT_PHONE_LENGTH = 11;
 export const BOT_VERIFICATION_PEERS_LIMIT = 20;
 
+export const CALL_PROTOCOL_LIBRARY_VERSIONS = ['13.0.0'];
+
 export const LIGHT_THEME_BG_COLOR = '#99BA92';
 export const DARK_THEME_BG_COLOR = '#000000';
 export const DEFAULT_PATTERN_COLOR = '#4A8E3A8C';
@@ -415,7 +423,9 @@ export const PREMIUM_FEATURE_SECTIONS = [
   'last_seen',
   'message_privacy',
   'effects',
+  'ai_compose',
   'todo',
+  'pm_noforwards',
 ] as const;
 
 export const PREMIUM_BOTTOM_VIDEOS: ApiPremiumSection[] = [
