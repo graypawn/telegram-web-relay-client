@@ -1,7 +1,7 @@
 {
   "name": "telegram-web-relay-client",
   "version": "12.0.20-relay.6",
-  "description": "Web client for telegram-web-relay. Fork of Telegram-tt (https://github.com/Ajaxy/telegram-tt).",
+  "description": "Browser client for telegram-web-relay. Fork of lisyoen/telegram-web-relay-client, based on Telegram-tt (https://github.com/Ajaxy/telegram-tt).",
   "author": "ChangYeon Lee",
   "license": "GPL-3.0-or-later",
   "type": "module",
@@ -144,5 +144,13 @@
   },
   "browserslist": [
     "baseline widely available"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/graypawn/telegram-web-relay-client"
+  },
+  "homepage": "https://github.com/graypawn/telegram-web-relay-client#readme",
+  "bugs": {
+    "url": "https://github.com/graypawn/telegram-web-relay-client/issues"
+  }
 }
