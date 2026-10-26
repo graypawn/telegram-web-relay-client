@@ -30,7 +30,9 @@ import {
   getMessageText,
   groupMessageIdsByThreadId,
   isActionMessage,
+  isDeletedUser,
   isMessageLocal,
+  isUserBot,
   pickMatchingTypingDraftMessage,
 } from '../../helpers';
 import { getMessageReplyInfo, getStoryReplyInfo } from '../../helpers/replies';
@@ -64,6 +66,7 @@ import {
   updateQuickReplyMessage,
   updateScheduledMessage,
 } from '../../reducers';
+import { addUnreadPollVotes } from '../../reducers/polls';
 import { addUnreadReactions, removeUnreadReactions } from '../../reducers/reactions';
 import { updateTabState } from '../../reducers/tabs';
 import {
@@ -98,6 +101,7 @@ import {
   selectTabState,
   selectTopic,
   selectTopicFromMessage,
+  selectUser,
   selectViewportIds,
 } from '../../selectors';
 import {
@@ -178,6 +182,25 @@ function removeTypingDraftEntries<T extends GlobalState>(
   return global;
 }
 
+function shouldBumpGuestBotTopPeer<T extends GlobalState>(global: T, message: ApiMessage) {
+  const { guestChatViaId, senderId } = message;
+  if (message.isOutgoing || message.content.action || guestChatViaId !== global.currentUserId || !senderId) {
+    return false;
+  }
+
+  const sender = selectUser(global, senderId);
+  return Boolean(sender?.isGuestChatBot);
+}
+
+function shouldBumpInlineBotTopPeer(message: ApiMessage) {
+  return Boolean(message.isOutgoing && !message.content.action && message.viaBotId);
+}
+
+function shouldBumpCorrespondentTopPeer<T extends GlobalState>(global: T, chatId: string) {
+  const user = selectUser(global, chatId);
+  return Boolean(user && !user.isSelf && !isUserBot(user) && !isDeletedUser(user));
+}
+
 addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
   switch (update['@type']) {
     case 'newMessage': {
@@ -212,6 +235,7 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
         ...message,
         previousLocalId: matchedTypingDraftEntry.message.id,
         isTypingDraft: true,
+        wasTypingDraft: true,
       } : message;
 
       global = updateWithLocalMedia(global, chatId, id, true, nextMessage);
@@ -344,6 +368,22 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
       }
 
       setGlobal(global);
+
+      if (shouldBumpGuestBotTopPeer(global, newMessage)) {
+        actions.bumpTopPeerRating({
+          category: 'botsGuestChat',
+          peerId: newMessage.senderId!,
+          date: newMessage.date,
+        });
+      }
+
+      if (shouldBumpInlineBotTopPeer(newMessage)) {
+        actions.bumpTopPeerRating({
+          category: 'botsInline',
+          peerId: newMessage.viaBotId!,
+          date: newMessage.date,
+        });
+      }
 
       // Reload dialogs if chat is not present in the list
       if (!isLocal && !chat?.isNotJoined && !selectIsChatListed(global, chatId)) {
@@ -690,6 +730,10 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
 
       setGlobal(global);
 
+      if (shouldBumpCorrespondentTopPeer(global, chatId)) {
+        actions.bumpTopPeerRating({ category: 'correspondents', peerId: chatId });
+      }
+
       break;
     }
 
@@ -725,6 +769,9 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
       }
 
       setGlobal(global);
+      if (shouldBumpCorrespondentTopPeer(global, chatId)) {
+        actions.bumpTopPeerRating({ category: 'correspondents', peerId: chatId });
+      }
       break;
     }
 
@@ -920,6 +967,29 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
     case 'updateMessagePollVote': {
       const { pollId, peerId, options } = update;
       global = updatePollVote(global, pollId, peerId, options);
+      setGlobal(global);
+
+      break;
+    }
+
+    case 'updateMessagePollUnread': {
+      const { chatId, messageId, threadId } = update;
+      const readState = selectThreadReadState(global, chatId, threadId);
+
+      if (!readState?.unreadPollVotes) {
+        actions.loadUnreadPollVotes({ chatId, threadId });
+        break;
+      }
+
+      if (readState.unreadPollVotes.includes(messageId)) break;
+
+      // We can't calculate threads without local messages, so reload instead.
+      if (!selectChatMessage(global, chatId, messageId)) {
+        actions.loadUnreadPollVotes({ chatId, threadId });
+        break;
+      }
+
+      global = addUnreadPollVotes({ global, chatId, ids: [messageId] });
       setGlobal(global);
 
       break;

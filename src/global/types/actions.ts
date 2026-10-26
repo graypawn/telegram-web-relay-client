@@ -1,4 +1,5 @@
 import type {
+  ApiAiComposeTone,
   ApiAttachBot,
   ApiAttachment,
   ApiBirthday,
@@ -58,6 +59,7 @@ import type {
   ApiStickerSetInfo,
   ApiThemeParameters,
   ApiTodoItem,
+  ApiTopPeerCategory,
   ApiTypeCurrencyAmount,
   ApiTypePrepaidGiveaway,
   ApiUpdate,
@@ -1914,7 +1916,6 @@ export interface ActionPayloads {
 
   // Users
   loadNearestCountry: undefined;
-  loadTopUsers: undefined;
   loadContactList: undefined;
 
   loadCurrentUser: undefined;
@@ -2164,8 +2165,19 @@ export interface ActionPayloads {
     command: string;
     chatId?: string;
   } & WithTabId;
-  loadTopInlineBots: undefined;
-  loadTopBotApps: undefined;
+  loadTopPeers: {
+    category: ApiTopPeerCategory;
+    force?: boolean;
+  };
+  removeTopPeer: {
+    category: ApiTopPeerCategory;
+    peerId: string;
+  };
+  bumpTopPeerRating: {
+    category: ApiTopPeerCategory;
+    peerId: string;
+    date?: number;
+  };
   queryInlineBot: {
     chatId: string;
     username: string;
@@ -2175,6 +2187,7 @@ export interface ActionPayloads {
   sendInlineBotResult: {
     id: string;
     queryId: string;
+    botId?: string;
     chatId: string;
     threadId: ThreadId;
     isSilent?: boolean;
@@ -2185,6 +2198,7 @@ export interface ActionPayloads {
     chat: ApiChat;
     id: string;
     queryId: string;
+    botId?: string;
     replyInfo?: ApiInputMessageReplyInfo;
     sendAs?: ApiPeer;
     isSilent?: boolean;
@@ -2681,6 +2695,38 @@ export interface ActionPayloads {
     scheduleRepeatPeriod?: number;
   } & WithTabId) | undefined;
   clearAiMessageEditorPendingResult: WithTabId | undefined;
+  openAiToneEditorModal: {
+    toneToEdit?: ApiAiComposeTone;
+  } & WithTabId | undefined;
+  closeAiToneEditorModal: WithTabId | undefined;
+  createAiTone: {
+    title: string;
+    emojiId: string;
+    prompt: string;
+    shouldDisplayAuthor?: boolean;
+  } & WithTabId;
+  updateAiTone: {
+    tone: ApiInputAiComposeTone;
+    title?: string;
+    emojiId?: string;
+    prompt?: string;
+    shouldDisplayAuthor?: boolean;
+  } & WithTabId;
+  deleteAiTone: {
+    tone: ApiInputAiComposeTone;
+  } & WithTabId;
+  openAiTonePreview: {
+    slug: string;
+  } & WithTabId;
+  closeAiTonePreview: WithTabId | undefined;
+  saveAiTone: {
+    tone: ApiInputAiComposeTone;
+    unsave?: boolean;
+  } & WithTabId;
+  loadAiTonePreviewExample: {
+    tone: ApiInputAiComposeTone;
+    num: number;
+  } & WithTabId;
 
   openGiveawayModal: ({
     chatId: string;
