@@ -10,6 +10,7 @@ import type { OriginPayload, ThenArg } from './types';
 import { DEBUG, TG2_SESSION_FLAG } from '../../../config';
 import Deferred from '../../../util/Deferred';
 import { getCurrentTabId, subscribeToMasterChange } from '../../../util/establishMultitabRole';
+import { blobToDataUri } from '../../../util/files';
 import generateUniqueId from '../../../util/generateUniqueId';
 import { DATA_BROADCAST_CHANNEL_NAME } from '../../../util/multiaccount';
 import {
@@ -556,28 +557,99 @@ function makeRequest(message: OriginPayload) {
   return promise;
 }
 
-function makeSocketRequest(payload: OriginPayload, requestState: RequestState) {
-  if (payload.type === 'callMethod' && payload.name) {
-    const eventName = `api:response:${payload.messageId}`;
+function emitRelayRequest<T>(method: string, params: any): Promise<T> {
+  const id = generateUniqueId();
+  const responseEvent = `api:response:${id}`;
 
+  return new Promise((resolve, reject) => {
+    let unsubscribe: () => void = () => undefined;
     const timeout = setTimeout(() => {
-      requestState.reject(new Error(`Request timeout: ${payload.name}`));
+      unsubscribe();
+      reject(new Error(`Request timeout: ${method}`));
     }, 30000);
 
-    onEvent(eventName, (response: any) => {
+    unsubscribe = onEvent(responseEvent, (response: any) => {
       clearTimeout(timeout);
+      unsubscribe();
       if (response.error) {
-        requestState.reject(response.error);
+        reject(response.error);
       } else {
-        requestState.resolve(response.data);
+        resolve(response.data as T);
       }
     });
 
-    emitEvent('api:request', {
-      id: payload.messageId,
-      method: payload.name,
-      params: payload.args?.[0] || {},
+    emitEvent('api:request', { id, method, params });
+  });
+}
+
+async function sendRelayAttachment(params: any): Promise<unknown> {
+  const attachment = params?.attachment;
+  if (!attachment?.blob) {
+    throw new Error('Attachment blob is unavailable');
+  }
+
+  const dataUri = await blobToDataUri(attachment.blob);
+  const commaIndex = dataUri.indexOf(',');
+  if (commaIndex < 0) {
+    throw new Error('Failed to encode attachment');
+  }
+
+  const base64 = dataUri.slice(commaIndex + 1);
+  const chatId = params.chat?.id ?? params.chatId;
+  const isImage = Boolean(
+    attachment.quick
+    && !attachment.shouldSendAsFile
+    && typeof attachment.mimeType === 'string'
+    && attachment.mimeType.startsWith('image/'),
+  );
+  const method = isImage ? 'sendImage' : 'sendFile';
+  const fileParams = {
+    chat: params.chat,
+    chatId,
+    fileName: attachment.filename,
+    mimeType: attachment.mimeType,
+    caption: params.text || '',
+    replyInfo: params.replyInfo,
+  };
+
+  // Keep each polling POST below restrictive proxy body limits. The relay
+  // reassembles chunks before handing the temporary file to TDLib.
+  const chunkSize = 3500;
+  if (base64.length <= chunkSize) {
+    return emitRelayRequest(method, {
+      ...fileParams,
+      ...(isImage ? { imageData: dataUri } : { fileData: dataUri }),
     });
+  }
+
+  const totalChunks = Math.ceil(base64.length / chunkSize);
+  const begin = await emitRelayRequest<{ uploadId?: string }>('uploadBegin', {
+    fileName: attachment.filename,
+    mimeType: attachment.mimeType,
+    dataUriPrefix: dataUri.slice(0, commaIndex + 1),
+    totalChunks,
+    kind: isImage ? 'image' : 'file',
+  });
+  if (!begin.uploadId) {
+    throw new Error('uploadBegin returned no upload ID');
+  }
+
+  for (let index = 0; index < totalChunks; index++) {
+    const data = base64.slice(index * chunkSize, (index + 1) * chunkSize);
+    await emitRelayRequest('uploadChunk', { uploadId: begin.uploadId, index, data });
+  }
+
+  return emitRelayRequest('uploadCommit', { uploadId: begin.uploadId, ...fileParams });
+}
+
+function makeSocketRequest(payload: OriginPayload, requestState: RequestState) {
+  if (payload.type === 'callMethod' && payload.name) {
+    const params = (payload.args?.[0] || {}) as any;
+    const request = payload.name === 'sendMessage' && params.attachment?.blob
+      ? sendRelayAttachment(params)
+      : emitRelayRequest(payload.name, params);
+
+    void request.then(requestState.resolve, requestState.reject);
   } else if (payload.type === 'ping') {
     requestState.resolve(undefined);
   } else if (payload.type === 'initApi') {

@@ -1,6 +1,6 @@
 {
   "name": "telegram-web-relay-client",
-  "version": "12.0.30-relay.1",
+  "version": "12.0.30-relay.2",
   "description": "Browser client for telegram-web-relay. Fork of lisyoen/telegram-web-relay-client, based on Telegram-tt (https://github.com/Ajaxy/telegram-tt).",
   "author": "ChangYeon Lee",
   "license": "GPL-3.0-or-later",
