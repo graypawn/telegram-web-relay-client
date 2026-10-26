@@ -426,6 +426,7 @@ export interface ApiWebPageFull {
   gift?: ApiStarGiftUnique;
   auction?: ApiWebPageAuctionData;
   stickers?: ApiWebPageStickerData;
+  aiComposeToneEmojiId?: string;
   hasLargeMedia?: boolean;
 }
 
@@ -764,6 +765,7 @@ export interface ApiMessage {
   isKeyboardSelective?: boolean;
   viaBotId?: string;
   viaBusinessBotId?: string;
+  guestChatViaId?: string;
   postAuthorTitle?: string;
   isScheduled?: boolean;
   scheduleRepeatPeriod?: number;
@@ -799,6 +801,7 @@ export interface ApiMessage {
   fromRank?: string;
 
   isTypingDraft?: boolean; // Local field
+  wasTypingDraft?: boolean; // Local field
 }
 
 export interface ApiReactions {

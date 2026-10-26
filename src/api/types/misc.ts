@@ -337,8 +337,6 @@ export interface ApiAppConfig {
   aiComposeToneExamplesNum?: number;
   aiComposeToneTitleLengthMax?: number;
   aiComposeTonePromptLengthMax?: number;
-  aiComposeToneSavedLimitDefault?: number;
-  aiComposeToneSavedLimitPremium?: number;
 }
 
 export interface ApiConfig {
@@ -351,7 +349,25 @@ export interface ApiConfig {
   maxMessageLength: number;
   editTimeLimit: number;
   maxForwardedCount: number;
+  ratingEDecay: number;
 }
+
+export type ApiTopPeerCategory = 'correspondents' | 'botsInline' | 'botsApp' | 'botsGuestChat';
+
+export type ApiTopPeer = {
+  peerId: string;
+  rating: number;
+};
+
+export type ApiTopPeersResult = {
+  type: 'topPeers';
+  category: ApiTopPeerCategory;
+  topPeers: ApiTopPeer[];
+} | {
+  type: 'unchanged';
+} | {
+  type: 'disabled';
+};
 
 export interface ApiPromoData {
   expires: number;
@@ -446,15 +462,17 @@ export type ApiLimitType =
   | 'recommendedChannels'
   | 'savedDialogsPinned'
   | 'maxReactions'
-  | 'moreAccounts';
+  | 'moreAccounts'
+  | 'aiComposeToneSaved';
 
 export type ApiLimitTypeWithModal = Exclude<ApiLimitType, (
   'captionLength' | 'aboutLength' | 'stickersFaved' | 'savedGifs' | 'recommendedChannels' | 'moreAccounts'
-  | 'maxReactions'
+  | 'maxReactions' | 'aiComposeToneSaved'
 )>;
 
 export type ApiLimitTypeForPromo = Exclude<ApiLimitType,
-'uploadMaxFileparts' | 'chatlistInvites' | 'chatlistJoined' | 'savedDialogsPinned' | 'maxReactions'
+  'uploadMaxFileparts' | 'chatlistInvites' | 'chatlistJoined' | 'savedDialogsPinned' | 'maxReactions'
+  | 'aiComposeToneSaved'
 >;
 
 export type ApiPeerNotifySettings = {

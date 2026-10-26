@@ -72,7 +72,7 @@ import {
   isReplyToMessage,
   isSystemBot,
 } from '../../../global/helpers';
-import { getPeerFullTitle } from '../../../global/helpers/peers';
+import { getPeerFullTitle, getPeerTitle } from '../../../global/helpers/peers';
 import { getMessageReplyInfo, getStoryReplyInfo } from '../../../global/helpers/replies';
 import {
   selectActiveDownloads,
@@ -239,14 +239,14 @@ type OwnProps = {
   appearanceOrder: number;
   isJustAdded: boolean;
   isThreadTop?: boolean;
+  shouldIgnoreSendFocus?: boolean;
+  isQuickPreview?: boolean;
   memoFirstUnreadIdRef?: { current: number | undefined };
   getIsMessageListReady?: Signal<boolean>;
   observeIntersectionForBottom?: ObserveFn;
   observeIntersectionForLoading?: ObserveFn;
   observeIntersectionForPlaying?: ObserveFn;
-  observeIntersectionForTopExit?: ObserveFn;
   onMessageUnmount?: (messageId: number) => void;
-  onTallTypingDraft?: (messageId: number, isNearExit: boolean) => void;
 } & MessagePositionProperties;
 
 type StateProps = {
@@ -329,6 +329,7 @@ type StateProps = {
   tags?: Record<ApiReactionKey, ApiSavedReactionTag>;
   canTranscribeVoice?: boolean;
   viaBusinessBot?: ApiUser;
+  guestFromSender?: ApiPeer;
   effect?: ApiAvailableEffect;
   poll?: ApiMessagePoll;
   webPage?: ApiWebPage;
@@ -459,6 +460,7 @@ const Message = ({
   tags,
   canTranscribeVoice,
   viaBusinessBot,
+  guestFromSender,
   effect,
   poll,
   maxTimestamp,
@@ -475,9 +477,8 @@ const Message = ({
   observeIntersectionForBottom,
   observeIntersectionForLoading,
   observeIntersectionForPlaying,
-  observeIntersectionForTopExit,
+  isQuickPreview,
   onMessageUnmount,
-  onTallTypingDraft,
 }: OwnProps & StateProps) => {
   const {
     toggleMessageSelection,
@@ -489,6 +490,7 @@ const Message = ({
     animateUnreadReaction,
     focusMessage,
     markTypingDraftDone,
+    markMessageListRead,
     markMentionsRead,
     markPollVotesRead,
     openThread,
@@ -496,14 +498,13 @@ const Message = ({
   } = getActions();
 
   const ref = useRef<HTMLDivElement>();
-  const topMarkerRef = useRef<HTMLDivElement>();
   const bottomMarkerRef = useRef<HTMLDivElement>();
   const quickReactionRef = useRef<HTMLDivElement>();
 
   const oldLang = useOldLang();
   const lang = useLang();
   const {
-    id: messageId, chatId, forwardInfo, viaBotId, isTranscriptionError, factCheck,
+    id: messageId, chatId, forwardInfo, viaBotId, guestChatViaId, isTranscriptionError, factCheck,
     isTypingDraft, previousLocalId, fromRank,
   } = message;
 
@@ -517,16 +518,7 @@ const Message = ({
   const [declineReason, setDeclineReason] = useState('');
   const { isMobile, isTouchScreen } = useAppLayout();
 
-  useOnIntersect(bottomMarkerRef, observeIntersectionForBottom);
-
-  const handleTypingDraftNearExit = useLastCallback(({ isIntersecting }: IntersectionObserverEntry) => {
-    onTallTypingDraft?.(messageId, !isIntersecting);
-  });
-  useOnIntersect(
-    topMarkerRef,
-    isTypingDraft && isLastInList ? observeIntersectionForTopExit : undefined,
-    handleTypingDraftNearExit,
-  );
+  useOnIntersect(bottomMarkerRef, isTypingDraft ? undefined : observeIntersectionForBottom);
 
   const {
     isContextMenuOpen,
@@ -600,13 +592,15 @@ const Message = ({
   const isCustomShape = !withVoiceTranscription && getMessageCustomShape(message);
   const hasAnimatedEmoji = isCustomShape && (animatedEmoji || animatedCustomEmoji);
   const hasReactions = reactionMessage?.reactions && !areReactionsEmpty(reactionMessage.reactions);
+  const hasViaSender = Boolean(viaBotId || guestChatViaId);
+
   const asForwarded = (
     forwardInfo
     && (!isChatWithSelf || isScheduled)
     && !isRepliesChat
     && !forwardInfo.isLinkedChannelPost
     && !isAnonymousForwards
-    && !botSender
+    && !hasViaSender
   ) || Boolean(storyData && !storyData.isMention);
   const canShowSenderBoosts = Boolean(senderBoosts) && !asForwarded && isFirstInGroup;
   const isStoryMention = storyData?.isMention;
@@ -691,6 +685,7 @@ const Message = ({
   const {
     handleSenderClick,
     handleViaBotClick,
+    handleGuestForClick,
     handleReplyClick,
     handleMediaClick,
     handleDocumentClick,
@@ -724,6 +719,7 @@ const Message = ({
     avatarPeer,
     senderPeer,
     botSender,
+    guestFromSender,
     messageTopic,
     isTranslatingChat: Boolean(requestedChatTranslationLanguage),
     story: replyStory && 'content' in replyStory ? replyStory : undefined,
@@ -815,6 +811,7 @@ const Message = ({
     isJustAdded && 'is-just-added',
     (hasActiveReactions || shouldPlayEffect) && 'has-active-effect',
     isStoryMention && 'is-story-mention',
+    guestChatViaId && 'has-guest-avatar',
   );
 
   const text = textMessage && getMessageContent(textMessage).text;
@@ -986,8 +983,22 @@ const Message = ({
     || undefined;
 
   useEffect(() => {
+    if (isTypingDraft) {
+      return;
+    }
+
     const bottomMarker = bottomMarkerRef.current;
     if (!bottomMarker || !isElementInViewport(bottomMarker)) return;
+
+    if (
+      message.wasTypingDraft
+      && !isQuickPreview
+      && !isOwn
+      && memoFirstUnreadIdRef?.current
+      && messageId >= memoFirstUnreadIdRef.current
+    ) {
+      markMessageListRead({ maxId: messageId });
+    }
 
     if (hasUnreadReaction) {
       animateUnreadReaction({ chatId, messageIds: [messageId] });
@@ -1014,10 +1025,16 @@ const Message = ({
     hasUnreadPollVote,
     album,
     chatId,
+    isQuickPreview,
+    isOwn,
+    isTypingDraft,
+    markMessageListRead,
     messageId,
+    memoFirstUnreadIdRef,
     animateUnreadReaction,
     markPollVotesRead,
     message.hasUnreadMention,
+    message.wasTypingDraft,
   ]);
 
   const albumLayout = useMemo(() => {
@@ -1122,7 +1139,7 @@ const Message = ({
         observeIntersectionForPlaying={observeIntersectionForPlaying}
         withTranslucentThumbs={isCustomShape}
         isInSelectMode={isInSelectMode}
-        canBeEmpty={hasFactCheck}
+        canBeEmpty={hasFactCheck || isTypingDraft}
         maxTimestamp={maxTimestamp}
         threadId={threadId}
         shouldAnimateTyping={isTypingDraft}
@@ -1655,8 +1672,9 @@ const Message = ({
 
   function shouldRenderSenderName() {
     const media = photo || video || location || paidMedia;
-    return !(isCustomShape && !viaBotId) && (
-      (withSenderName && (!media || hasTopicChip)) || asForwarded || viaBotId || forceSenderName
+    return !(isCustomShape && !hasViaSender) && (
+      (withSenderName && (!media || hasTopicChip)) || asForwarded || viaBotId
+      || (guestChatViaId && isFirstInGroup) || forceSenderName
     ) && !isInDocumentGroupNotFirst && !(hasMessageReply && isCustomShape);
   }
 
@@ -1734,7 +1752,7 @@ const Message = ({
     shouldSkipRenderForwardTitle: boolean = false, shouldSkipRenderAdminTitle: boolean = false,
   ) {
     let senderTitle;
-    if (senderPeer && !(isCustomShape && viaBotId)) {
+    if (senderPeer && !(isCustomShape && hasViaSender)) {
       senderTitle = getPeerFullTitle(oldLang, senderPeer);
     } else if (forwardInfo?.hiddenUserName) {
       senderTitle = forwardInfo.hiddenUserName;
@@ -1743,6 +1761,7 @@ const Message = ({
     }
     const senderEmojiStatus = senderPeer && 'emojiStatus' in senderPeer && senderPeer.emojiStatus;
     const senderIsPremium = senderPeer && 'isPremium' in senderPeer && senderPeer.isPremium;
+    const guestFromSenderTitle = guestFromSender ? getPeerTitle(oldLang, guestFromSender) : undefined;
 
     const shouldRenderForwardAvatar = asForwarded && senderPeer;
     return (
@@ -1784,17 +1803,28 @@ const Message = ({
               {senderPeer?.fakeType && <FakeIcon fakeType={senderPeer.fakeType} />}
             </span>
           </span>
-        ) : !botSender ? (
+        ) : (!botSender && !guestFromSender) ? (
           NBSP
         ) : undefined}
         {botSender?.hasUsername && (
-          <span className="interactive">
-            <span className="via">{oldLang('ViaBot')}</span>
+          <span className="interactive via-sender">
+            <span className="via">{lang('ViaBot')}</span>
             <span
               className="sender-title"
               onClick={handleViaBotClick}
             >
               {renderText(`@${getMainUsername(botSender)}`)}
+            </span>
+          </span>
+        )}
+        {guestFromSenderTitle && (
+          <span className="interactive via-sender">
+            <span className="via">{lang('ForBot')}</span>
+            <span
+              className="sender-title"
+              onClick={handleGuestForClick}
+            >
+              {renderText(guestFromSenderTitle)}
             </span>
           </span>
         )}
@@ -1894,10 +1924,6 @@ const Message = ({
       onMouseMove={withQuickReactionButton ? handleMouseMove : undefined}
       onMouseLeave={(withQuickReactionButton || isInDocumentGroupNotLast) ? handleMouseLeave : undefined}
     >
-      <div
-        ref={topMarkerRef}
-        className="top-marker"
-      />
       <div
         ref={bottomMarkerRef}
         className="bottom-marker"
@@ -2080,11 +2106,11 @@ export default memo(withGlobal<OwnProps>(
     } = selectTabState(global);
     const {
       message, album, documentGroup, withSenderName, withAvatar, threadId, messageListType,
-      isLastInDocumentGroup, isFirstInGroup,
+      isLastInDocumentGroup, isFirstInGroup, shouldIgnoreSendFocus,
     } = ownProps;
     const {
-      id, chatId, viaBotId, isOutgoing, forwardInfo, transcriptionId, isPinned, viaBusinessBotId, effectId,
-      paidMessageStars,
+      id, chatId, viaBotId, guestChatViaId, isOutgoing, forwardInfo, transcriptionId, isPinned,
+      viaBusinessBotId, effectId, paidMessageStars,
     } = message;
 
     const webPage = selectFullWebPageFromMessage(global, message);
@@ -2112,6 +2138,7 @@ export default memo(withGlobal<OwnProps>(
     const sender = selectSender(global, message);
     const originSender = selectForwardedSender(global, message);
     const botSender = viaBotId ? selectUser(global, viaBotId) : undefined;
+    const guestFromSender = guestChatViaId ? selectPeer(global, guestChatViaId) : undefined;
     const senderChatMember = sender?.id
       ? (adminMembersById?.[sender?.id] || members?.find((member) => member.userId === sender?.id))
       : undefined;
@@ -2137,11 +2164,18 @@ export default memo(withGlobal<OwnProps>(
     const storySender = storyReplyPeerId ? selectPeer(global, storyReplyPeerId) : undefined;
 
     const uploadProgress = selectUploadProgress(global, message);
-    const isFocused = messageListType === 'thread' && (
+    const isFocusTarget = messageListType === 'thread' && (
       album
         ? album.messages.some((m) => selectIsMessageFocused(global, m, threadId))
         : selectIsMessageFocused(global, message, threadId)
     );
+    const shouldIgnoreFocus = Boolean(
+      isFocusTarget
+      && shouldIgnoreSendFocus
+      && focusedMessage?.noHighlight
+      && focusedMessage.isResizingContainer,
+    );
+    const isFocused = isFocusTarget && !shouldIgnoreFocus;
 
     const {
       direction: focusDirection, noHighlight: noFocusHighlight, isResizingContainer,
@@ -2234,6 +2268,7 @@ export default memo(withGlobal<OwnProps>(
       canShowSender,
       originSender,
       botSender,
+      guestFromSender,
       shouldHideReply: shouldHideReply || isReplyToTopicStart,
       replyMessage,
       replyMessageSender,
