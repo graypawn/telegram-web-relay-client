@@ -10,9 +10,10 @@ import type { OriginPayload, ThenArg } from './types';
 import { DEBUG, TG2_SESSION_FLAG } from '../../../config';
 import Deferred from '../../../util/Deferred';
 import { getCurrentTabId, subscribeToMasterChange } from '../../../util/establishMultitabRole';
-import { blobToDataUri } from '../../../util/files';
 import generateUniqueId from '../../../util/generateUniqueId';
 import { DATA_BROADCAST_CHANNEL_NAME } from '../../../util/multiaccount';
+import { buildRelayApiMessage, buildRelayTypingStatus } from '../../relay/messageAdapter';
+import { requestRelayMethod } from '../../relay/requestAdapter';
 import {
   emitEvent, initSocket, onConnectionChange, onEvent,
 } from '../../socket/socketClient';
@@ -302,19 +303,7 @@ function subscribeToSocketEvents() {
     }
     // Server already filters out sending_state messages, but double-check
     if (message.sending_state) return;
-    // Convert to ApiMessage format and dispatch update
-    const apiMessage = {
-      id: message.id,
-      chatId: String(message.chat_id || message.chatId),
-      date: message.date,
-      senderId: message.sender_id?.user_id ? String(message.sender_id.user_id)
-        : message.sender_id?.chat_id ? String(message.sender_id.chat_id)
-          : message.senderId ? String(message.senderId) : undefined,
-      isOutgoing: message.is_outgoing || message.isOutgoing || false,
-      content: message.content?.text?.text !== undefined
-        ? { text: { text: message.content.text.text } }
-        : message.content || { text: { text: '' } },
-    };
+    const apiMessage = buildRelayApiMessage(message);
     dispatchRelayUpdate({
       '@type': 'newMessage',
       id: apiMessage.id,
@@ -423,23 +412,42 @@ function subscribeToSocketEvents() {
   // Chat last message update (order + preview)
   onEvent('chatUpdate', (data: any) => {
     if (data.lastMessage) {
-      const msg = data.lastMessage;
       dispatchRelayUpdate({
         '@type': 'updateChatLastMessage',
         id: String(data.chatId),
-        lastMessage: {
-          id: msg.id,
-          chatId: String(data.chatId),
-          date: msg.date,
-          senderId: msg.sender_id?.user_id ? String(msg.sender_id.user_id)
-            : msg.sender_id?.chat_id ? String(msg.sender_id.chat_id) : undefined,
-          isOutgoing: msg.is_outgoing || false,
-          content: {
-            text: msg.content?.text ? { text: msg.content.text.text || '' } : undefined,
-          },
-        } as any,
+        lastMessage: buildRelayApiMessage({ ...data.lastMessage, chat_id: data.lastMessage.chat_id ?? data.chatId }),
       });
     }
+  });
+
+  onEvent('chatAction', (data: any) => {
+    if (!data || data.chatId === undefined) return;
+    dispatchRelayUpdate({
+      '@type': 'updateChatTypingStatus',
+      id: String(data.chatId),
+      peerId: String(data.senderId?.user_id ?? data.senderId?.chat_id ?? data.chatId),
+      typingStatus: buildRelayTypingStatus(data.action),
+    });
+  });
+
+  onEvent('messagesDeleted', (data: any) => {
+    if (!data?.chatId) return;
+    dispatchRelayUpdate({
+      '@type': 'deleteMessages',
+      chatId: String(data.chatId),
+      ids: data.messageIds || [],
+    });
+  });
+
+  onEvent('messageContentUpdated', (message: any) => {
+    if (!message?.id) return;
+    const apiMessage = buildRelayApiMessage(message);
+    dispatchRelayUpdate({
+      '@type': 'updateMessage',
+      id: apiMessage.id,
+      chatId: apiMessage.chatId,
+      message: apiMessage,
+    });
   });
 
   // Access proxy and reconnects can deliver the initial state before this
@@ -582,72 +590,10 @@ function emitRelayRequest<T>(method: string, params: any): Promise<T> {
   });
 }
 
-async function sendRelayAttachment(params: any): Promise<unknown> {
-  const attachment = params?.attachment;
-  if (!attachment?.blob) {
-    throw new Error('Attachment blob is unavailable');
-  }
-
-  const dataUri = await blobToDataUri(attachment.blob);
-  const commaIndex = dataUri.indexOf(',');
-  if (commaIndex < 0) {
-    throw new Error('Failed to encode attachment');
-  }
-
-  const base64 = dataUri.slice(commaIndex + 1);
-  const chatId = params.chat?.id ?? params.chatId;
-  const isImage = Boolean(
-    attachment.quick
-    && !attachment.shouldSendAsFile
-    && typeof attachment.mimeType === 'string'
-    && attachment.mimeType.startsWith('image/'),
-  );
-  const method = isImage ? 'sendImage' : 'sendFile';
-  const fileParams = {
-    chat: params.chat,
-    chatId,
-    fileName: attachment.filename,
-    mimeType: attachment.mimeType,
-    caption: params.text || '',
-    replyInfo: params.replyInfo,
-  };
-
-  // Keep each polling POST below restrictive proxy body limits. The relay
-  // reassembles chunks before handing the temporary file to TDLib.
-  const chunkSize = 3500;
-  if (base64.length <= chunkSize) {
-    return emitRelayRequest(method, {
-      ...fileParams,
-      ...(isImage ? { imageData: dataUri } : { fileData: dataUri }),
-    });
-  }
-
-  const totalChunks = Math.ceil(base64.length / chunkSize);
-  const begin = await emitRelayRequest<{ uploadId?: string }>('uploadBegin', {
-    fileName: attachment.filename,
-    mimeType: attachment.mimeType,
-    dataUriPrefix: dataUri.slice(0, commaIndex + 1),
-    totalChunks,
-    kind: isImage ? 'image' : 'file',
-  });
-  if (!begin.uploadId) {
-    throw new Error('uploadBegin returned no upload ID');
-  }
-
-  for (let index = 0; index < totalChunks; index++) {
-    const data = base64.slice(index * chunkSize, (index + 1) * chunkSize);
-    await emitRelayRequest('uploadChunk', { uploadId: begin.uploadId, index, data });
-  }
-
-  return emitRelayRequest('uploadCommit', { uploadId: begin.uploadId, ...fileParams });
-}
-
 function makeSocketRequest(payload: OriginPayload, requestState: RequestState) {
   if (payload.type === 'callMethod' && payload.name) {
     const params = (payload.args?.[0] || {}) as any;
-    const request = payload.name === 'sendMessage' && params.attachment?.blob
-      ? sendRelayAttachment(params)
-      : emitRelayRequest(payload.name, params);
+    const request = requestRelayMethod(emitRelayRequest, payload.name, params);
 
     void request.then(requestState.resolve, requestState.reject);
   } else if (payload.type === 'ping') {
