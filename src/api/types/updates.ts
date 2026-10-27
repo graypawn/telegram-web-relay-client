@@ -30,6 +30,7 @@ import type {
   ApiQuickReply,
   ApiReaction,
   ApiReactions,
+  ApiRichMessage,
   ApiStickerSet,
   ApiThreadInfo,
   ApiWebPage,
@@ -155,8 +156,13 @@ export type ApiUpdateChatTypingDraft = {
   chatId: string;
   id: string;
   threadId?: ThreadId;
+} & ({
   text: ApiFormattedText;
-};
+  richMessage?: undefined;
+} | {
+  richMessage: ApiRichMessage;
+  text?: undefined;
+});
 
 export type ApiUpdateStartEmojiInteraction = {
   '@type': 'updateStartEmojiInteraction';
@@ -731,6 +737,19 @@ export type ApiUpdateWebViewResultSent = {
   queryId: string;
 };
 
+export type ApiJoinChatBotResult =
+  | { type: 'approved' }
+  | { type: 'declined' }
+  | { type: 'queued' }
+  | { type: 'webView'; url: string };
+
+export type ApiUpdateJoinChatWebViewDecision = {
+  '@type': 'updateJoinChatWebViewDecision';
+  peerId: string;
+  queryId: string;
+  result: ApiJoinChatBotResult;
+};
+
 export type ApiUpdateBotMenuButton = {
   '@type': 'updateBotMenuButton';
   botId: string;
@@ -958,6 +977,7 @@ export type ApiUpdate = (
   ApiUpdateDeleteScheduledMessages | ApiUpdateResetMessages | ApiUpdateMessageTranslations |
   ApiUpdateFailedMessageTranslations | ApiUpdateWebPage | ApiUpdateChatTypingDraft | ApiUpdateDiscussion |
   ApiUpdateTwoFaError | ApiUpdateTwoFaStateWaitCode | ApiUpdateWebViewResultSent |
+  ApiUpdateJoinChatWebViewDecision |
   ApiUpdateDefaultNotifySettings | ApiUpdatePeerNotifySettings | ApiUpdatePeerBlocked | ApiUpdatePrivacy |
   ApiUpdateServerTimeOffset | ApiUpdateMessageReactions | ApiUpdateSavedReactionTags |
   ApiUpdateGroupCallParticipants | ApiUpdateGroupCallConnection | ApiUpdateGroupCall | ApiUpdateGroupCallStreams |

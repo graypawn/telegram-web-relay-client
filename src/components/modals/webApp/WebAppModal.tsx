@@ -1,4 +1,5 @@
 import { type MouseEvent as ReactMouseEvent } from 'react';
+import Color from 'colorjs.io';
 import type { FC } from '../../../lib/teact/teact';
 import {
   memo, useEffect,
@@ -21,7 +22,7 @@ import {
 import { selectSharedSettings } from '../../../global/selectors/sharedState';
 import buildClassName from '../../../util/buildClassName';
 import buildStyle from '../../../util/buildStyle';
-import { getColorLuma, hex2rgbaObj } from '../../../util/colors';
+import { getColorLuma } from '../../../util/colors';
 import windowSize from '../../../util/windowSize';
 
 import useInterval from '../../../hooks/schedulers/useInterval';
@@ -222,11 +223,13 @@ const WebAppModal: FC<OwnProps & StateProps> = ({
     if (!openedWebApps) return;
     Object.keys(openedWebApps).forEach((key) => {
       const webApp = openedWebApps[key];
-      if (webApp.queryId) {
+
+      const peerId = webApp.isJoinChat ? webApp.peerId : (webApp.peerId || chat?.id);
+      if (webApp.queryId && peerId) {
         prolongWebView({
           botId: webApp.botId,
           queryId: webApp.queryId,
-          peerId: webApp.peerId || chat!.id,
+          peerId,
           replyInfo: webApp.replyInfo,
         });
       }
@@ -425,8 +428,7 @@ const WebAppModal: FC<OwnProps & StateProps> = ({
   const headerTextVar = useMemo(() => {
     if (isMoreAppsTabActive) return 'color-text';
     if (!headerColor) return undefined;
-    const { r, g, b } = hex2rgbaObj(headerColor);
-    const luma = getColorLuma([r, g, b]);
+    const luma = getColorLuma(new Color(headerColor));
     const adaptedLuma = theme === 'dark' ? 255 - luma : luma;
     return adaptedLuma > LUMA_THRESHOLD ? 'color-text' : 'color-background';
   }, [headerColor, theme, isMoreAppsTabActive]);

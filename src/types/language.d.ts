@@ -61,6 +61,8 @@ export interface LangPair {
   'PremiumLimitAccounts': undefined;
   'SendMessage': undefined;
   'MessageUnsupported': undefined;
+  'PageContentUnsupported': undefined;
+  'PageContentEmbed': undefined;
   'ConversationDefaultRestrictedMedia': undefined;
   'AccDescrVoiceMessage': undefined;
   'BotSettings': undefined;
@@ -517,6 +519,8 @@ export interface LangPair {
   'FilterDeleteAlert': undefined;
   'RequestToJoinChannelSentDescription': undefined;
   'RequestToJoinGroupSentDescription': undefined;
+  'RequestToJoinChannelDeclined': undefined;
+  'RequestToJoinGroupDeclined': undefined;
   'ChannelJoin': undefined;
   'JoinGroup': undefined;
   'MemberRequestsRequestToJoinChannel': undefined;
@@ -620,7 +624,7 @@ export interface LangPair {
   'MenuStickers': undefined;
   'MenuAnimations': undefined;
   'MenuStars': undefined;
-  'MenuTon': undefined;
+  'MenuGram': undefined;
   'MenuSendGift': undefined;
   'MenuTelegramFaq': undefined;
   'MenuPrivacyPolicy': undefined;
@@ -744,6 +748,9 @@ export interface LangPair {
   'SponsoredPeerBadge': undefined;
   'PremiumStickerTooltip': undefined;
   'ViewAction': undefined;
+  'RichMessageMore': undefined;
+  'RichTextMathPreview': undefined;
+  'RichTextMapPreview': undefined;
   'Loading': undefined;
   'NoMessages': undefined;
   'BotInfoTitle': undefined;
@@ -771,6 +778,9 @@ export interface LangPair {
   'EmptyGroupInfoLine3': undefined;
   'EmptyGroupInfoLine4': undefined;
   'Reactions': undefined;
+  'DeleteAllMessages': undefined;
+  'DeleteAllReactions': undefined;
+  'DeleteReactionTooltip': undefined;
   'ChatListMarkAllAsRead': undefined;
   'PaymentCardNumber': undefined;
   'CheckoutTotalAmount': undefined;
@@ -902,6 +912,7 @@ export interface LangPair {
   'SendMediaPermissionRoundVideos': undefined;
   'SendMediaPermissionWebPages': undefined;
   'SendMediaPermissionPolls': undefined;
+  'UserRestrictionsSendReactions': undefined;
   'UserRestrictionsEmbedLinks': undefined;
   'UserRestrictionsChangeInfo': undefined;
   'ChannelAddException': undefined;
@@ -919,6 +930,21 @@ export interface LangPair {
   'UserRestrictionsBlock': undefined;
   'ApproveNewMembers': undefined;
   'ApproveNewMembersDescription': undefined;
+  'ApproveNewMembersPublicUnavailable': undefined;
+  'ApproveNewSubscribersPublicUnavailable': undefined;
+  'GuardApproveNewMembers': undefined;
+  'GuardApproveNewChannelSubscribersInfo': undefined;
+  'GuardApproveNewPrivateGroupMembersInfo': undefined;
+  'GuardApproveNewPublicGroupMembersInfo': undefined;
+  'GuardApplyToInvitesTitle': undefined;
+  'GuardApplyToInvitesApply': undefined;
+  'GuardApplyToInvitesDontApply': undefined;
+  'GuardProcessJoinRequests': undefined;
+  'GuardProcessJoinRequestsInfo': undefined;
+  'Enable': undefined;
+  'Disable': undefined;
+  'ReplaceGuardBotTitle': undefined;
+  'InviteLinkApprovalRequired': undefined;
   'LinkNameHint': undefined;
   'LinkNameHelp': undefined;
   'LimitByPeriod': undefined;
@@ -1307,7 +1333,7 @@ export interface LangPair {
   'ProfileBirthdayToday': undefined;
   'ProfileMenuSetMainTab': undefined;
   'ProfileItemSubscribers': undefined;
-  'MonetizationInfoTONTitle': undefined;
+  'MonetizationInfoGramTitle': undefined;
   'AriaSearchOlderResult': undefined;
   'AriaSearchNewerResult': undefined;
   'StarsTransactionTOSLinkText': undefined;
@@ -1533,6 +1559,7 @@ export interface LangPair {
   'ViewButtonStickerset': undefined;
   'ViewButtonEmojiset': undefined;
   'ViewButtonGiftUnique': undefined;
+  'ViewButtonInstantView': undefined;
   'ViewButtonAiStyle': undefined;
   'AuthContinueOnThisLanguage': undefined;
   'Share': undefined;
@@ -1753,9 +1780,9 @@ export interface LangPair {
   'TitleSuggestedChanges': undefined;
   'SuggestMessageNoPrice': undefined;
   'EnterPriceInStars': undefined;
-  'EnterPriceInTon': undefined;
+  'EnterPriceInGram': undefined;
   'SuggestMessagePriceDescriptionStars': undefined;
-  'SuggestMessagePriceDescriptionTon': undefined;
+  'SuggestMessagePriceDescriptionGram': undefined;
   'SuggestMessageDateTimeHint': undefined;
   'SuggestMessageAnytime': undefined;
   'ButtonOfferFree': undefined;
@@ -1769,7 +1796,7 @@ export interface LangPair {
   'SuggestedPostRejectedNotification': undefined;
   'SuggestedPostAgreementReached': undefined;
   'CurrencyStars': undefined;
-  'CurrencyTon': undefined;
+  'CurrencyGram': undefined;
   'DeclineReasonPlaceholder': undefined;
   'SuggestedPostRejectedYou': undefined;
   'SuggestedPostRejectedWithReasonYou': undefined;
@@ -1800,10 +1827,10 @@ export interface LangPair {
   'PremiumPreviewAiTools': undefined;
   'PremiumPreviewAiToolsDescription': undefined;
   'NativeDownloadFailed': undefined;
-  'DescriptionAboutTon': undefined;
+  'DescriptionAboutGram': undefined;
   'ButtonTopUpViaFragment': undefined;
-  'TonModalHint': undefined;
-  'TonGiftReceived': undefined;
+  'GramModalHint': undefined;
+  'GramGiftReceived': undefined;
   'MediaSpoilerSensitive': undefined;
   'TextSensitiveModal': undefined;
   'ButtonSensitiveView': undefined;
@@ -1816,14 +1843,16 @@ export interface LangPair {
   'GiftRibbonPremium': undefined;
   'PremiumGiftHeader': undefined;
   'PriceInStars': undefined;
-  'PriceInTON': undefined;
-  'OnlyAcceptTON': undefined;
-  'OnlyAcceptTONDescription': undefined;
-  'DescriptionPayInTON': undefined;
-  'LabelPayInTON': undefined;
+  'PriceInGram': undefined;
+  'OnlyAcceptGram': undefined;
+  'OnlyAcceptGramDescription': undefined;
+  'DescriptionPayInGram': undefined;
+  'LabelPayInGram': undefined;
   'PriceChanged': undefined;
   'PayNewPrice': undefined;
   'LinkPreview': undefined;
+  'InstantView': undefined;
+  'InstantViewWrongLayout': undefined;
   'ContextMoveTextUp': undefined;
   'ContextMoveTextDown': undefined;
   'ContextLinkLargerMedia': undefined;
@@ -1880,10 +1909,13 @@ export interface LangPair {
   'HEX': undefined;
   'RGB': undefined;
   'Text': undefined;
-  'ConfirmBuyGiftForTonDescription': undefined;
+  'ConfirmBuyGiftForGramDescription': undefined;
   'TitleGiftLocked': undefined;
   'QuickPreview': undefined;
   'BotForumContinueThreadButton': undefined;
+  'HeaderMenuViewProfile': undefined;
+  'HeaderMenuViewGroupInfo': undefined;
+  'HeaderMenuViewTopicInfo': undefined;
   'BotForumActionNew': undefined;
   'BotForumActionNewDescription': undefined;
   'BotForumTopicTitlePlaceholder': undefined;
@@ -2387,6 +2419,13 @@ export interface LangPairWithVariables<V = LangVariable> {
   'MessageTooltipForwardedDate': {
     'date': V;
   };
+  'MessageMetaEditedAtTime': {
+    'time': V;
+  };
+  'MessageMetaEditedOnDateAtTime': {
+    'date': V;
+    'time': V;
+  };
   'EmptyGroupInfoLine1': {
     'count': V;
   };
@@ -2423,6 +2462,35 @@ export interface LangPairWithVariables<V = LangVariable> {
   };
   'EditAdminTransferGroupOwnershipSuccess': {
     'user': V;
+  };
+  'GuardProcessJoinRequestsEnableGroup': {
+    'bot': V;
+  };
+  'GuardProcessJoinRequestsDisableGroup': {
+    'bot': V;
+  };
+  'GuardProcessJoinRequestsEnableChannel': {
+    'bot': V;
+  };
+  'GuardProcessJoinRequestsDisableChannel': {
+    'bot': V;
+  };
+  'ReplaceGuardBotDescription': {
+    'current': V;
+    'new': V;
+  };
+  'ReplaceGuardBotKeep': {
+    'bot': V;
+  };
+  'ReplaceGuardBotUse': {
+    'bot': V;
+  };
+  'GuardManagedBy': {
+    'bot': V;
+  };
+  'GuardManagedByDescription': {
+    'approvalInfo': V;
+    'managedBy': V;
   };
   'LinkExpiresIn': {
     'time': V;
@@ -3191,7 +3259,7 @@ export interface LangPairWithVariables<V = LangVariable> {
   'ActionGiftPremiumDuration': {
     'duration': V;
   };
-  'TonAmount': {
+  'GramAmount': {
     'amount': V;
   };
   'ActionGiftCostCrypto': {
@@ -3769,9 +3837,6 @@ export interface LangPairWithVariables<V = LangVariable> {
   'AiToneLimitReachedPremium': {
     'limit': V;
   };
-  'AiTonePreviewUsedBy': {
-    'count': V;
-  };
   'AiTonePreviewCreatedBy': {
     'author': V;
   };
@@ -3787,6 +3852,7 @@ export interface LangPairWithVariables<V = LangVariable> {
 export interface LangPairPlural {
   'DeleteForMeChatHint': undefined;
   'DeleteForEveryoneHint': undefined;
+  'ReactionDeleted': undefined;
   'MediaReplaceInvalidError': undefined;
 }
 
@@ -3892,6 +3958,21 @@ export interface LangPairPluralWithVariables<V = LangVariable> {
     'count': V;
   };
   'MessageTooltipReplies': {
+    'count': V;
+  };
+  'DeleteReactionTitle': {
+    'count': V;
+  };
+  'GuardApplyToInvitesGroup': {
+    'count': V;
+  };
+  'GuardApplyToInvitesChannel': {
+    'count': V;
+  };
+  'GuardDisableInvitesGroup': {
+    'count': V;
+  };
+  'GuardDisableInvitesChannel': {
     'count': V;
   };
   'Hours': {
@@ -4110,7 +4191,7 @@ export interface LangPairPluralWithVariables<V = LangVariable> {
   'ActionGiftStarsTitle': {
     'amount': V;
   };
-  'TonAmountText': {
+  'GramAmountText': {
     'amount': V;
   };
   'ActionBoostApplyYou': {
@@ -4272,6 +4353,9 @@ export interface LangPairPluralWithVariables<V = LangVariable> {
     'count': V;
   };
   'FwdMessagesToChats': {
+    'count': V;
+  };
+  'AiTonePreviewUsedBy2': {
     'count': V;
   };
   'PollModalAddMoreText': {

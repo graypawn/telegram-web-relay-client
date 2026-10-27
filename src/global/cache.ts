@@ -3,7 +3,10 @@ import { addCallback, removeCallback } from '../lib/teact/teactn';
 
 import type {
   ApiAvailableReaction,
+  ApiDocument,
   ApiMessage,
+  ApiPhoto,
+  ApiVideo,
 } from '../api/types';
 import type { MessageList, ThreadId, TopicsInfo } from '../types';
 import type { ActionReturnType, GlobalState, SharedState } from './types';
@@ -371,6 +374,10 @@ function unsafeMigrateCache(cached: GlobalState, initialState: GlobalState) {
 
   if (cached.appConfig.webAppAllowedProtocols === undefined) {
     cached.appConfig.webAppAllowedProtocols = initialState.appConfig.webAppAllowedProtocols;
+  }
+
+  if (cached.appConfig.isMessagePrimaryEditedDateEnabled === undefined) {
+    cached.appConfig.isMessagePrimaryEditedDateEnabled = initialState.appConfig.isMessagePrimaryEditedDateEnabled;
   }
 
   if (untypedCached.sharedState?.settings?.shouldWarnAboutSvg) {
@@ -801,32 +808,40 @@ function omitLocalPaidReactions(message: ApiMessage): ApiMessage {
 
 function omitLocalMedia(message: ApiMessage): ApiMessage {
   const {
-    photo, video, document, sticker,
+    photo, video, document,
   } = message.content;
 
   return {
     ...message,
     content: {
       ...message.content,
-      photo: photo && {
-        ...photo,
-        blobUrl: undefined,
-      },
-      video: video && {
-        ...video,
-        blobUrl: undefined,
-        previewBlobUrl: undefined,
-      },
-      document: document && {
-        ...document,
-        previewBlobUrl: undefined,
-      },
-      sticker: sticker && {
-        ...sticker,
-        isPreloadedGlobally: undefined,
-      },
+      photo: photo && omitLocalPhoto(photo),
+      video: video && omitLocalVideo(video),
+      document: document && omitLocalDocument(document),
     },
     previousLocalId: undefined,
+  };
+}
+
+function omitLocalPhoto(photo: ApiPhoto): ApiPhoto {
+  return {
+    ...photo,
+    blobUrl: undefined,
+  };
+}
+
+function omitLocalVideo(video: ApiVideo): ApiVideo {
+  return {
+    ...video,
+    blobUrl: undefined,
+    previewBlobUrl: undefined,
+  };
+}
+
+function omitLocalDocument(document: ApiDocument): ApiDocument {
+  return {
+    ...document,
+    previewBlobUrl: undefined,
   };
 }
 

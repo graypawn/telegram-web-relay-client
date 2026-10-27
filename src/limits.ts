@@ -2,7 +2,6 @@ import type { ApiAppConfig, ApiLimitType } from './api/types';
 
 import { MULTIACCOUNT_MAX_SLOTS } from './config';
 
-export const MAX_UNIQUE_REACTIONS = 11;
 export const GROUP_CALL_PARTICIPANTS_LIMIT = 100;
 export const STORY_LIST_LIMIT = 100;
 export const API_GENERAL_ID_LIMIT = 100;
@@ -168,6 +167,7 @@ export const DEFAULT_APP_CONFIG: ApiAppConfig = {
     'translations.telegram.org',
   ],
   typingDraftTtl: 10,
+  isMessagePrimaryEditedDateEnabled: false,
   arePasskeysAvailable: true,
   passkeysMaxCount: 5,
   diceEmojies: [],

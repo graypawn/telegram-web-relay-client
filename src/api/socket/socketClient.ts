@@ -2,7 +2,9 @@
  * Socket.io 클라이언트 래퍼
  * server.js (localhost:9087)와 통신
  */
-import { io, Socket } from 'socket.io-client';
+import { io, type Socket } from 'socket.io-client';
+
+import { SOCKET_SERVER_URL } from '../../config';
 
 // 서버 URL (TDLib 백엔드)
 // App is served from the same origin as the relay server (Socket.io).
@@ -11,12 +13,12 @@ const getServerUrl = () => {
     // 같은 origin 사용 (Cloudflare 터널 뒤에선 포트 불필요)
     return window.location.origin;
   }
-  return process.env.SOCKET_SERVER_URL || 'http://localhost:9087';
+  return SOCKET_SERVER_URL || 'http://localhost:9087';
 };
 
 const SERVER_URL = getServerUrl();
 
-let socket: Socket | null = null;
+let socket: Socket | undefined;
 let isConnected = false;
 let connectionPromise: Promise<void> | undefined;
 
@@ -49,23 +51,27 @@ export function initSocket(): Promise<void> {
   });
 
   socket.on('connect', () => {
+    // eslint-disable-next-line no-console
     console.log('[SocketClient] Connected to', SERVER_URL);
     isConnected = true;
-    connectionCallbacks.forEach(cb => cb(true));
+    connectionCallbacks.forEach((cb) => cb(true));
   });
 
   socket.on('disconnect', (reason) => {
+    // eslint-disable-next-line no-console
     console.log('[SocketClient] Disconnected:', reason);
     isConnected = false;
-    connectionCallbacks.forEach(cb => cb(false));
+    connectionCallbacks.forEach((cb) => cb(false));
   });
 
   socket.on('connect_error', (error) => {
+    // eslint-disable-next-line no-console
     console.error('[SocketClient] Connection error:', error.message);
   });
 
   // 인증 상태 수신
   socket.on('authState', ({ state }) => {
+    // eslint-disable-next-line no-console
     console.log('[SocketClient] Auth state:', state);
   });
 
@@ -138,7 +144,7 @@ export function emitWithResponse<T>(
   event: string,
   data?: unknown,
   responseEvent?: string,
-  timeoutMs = 30000
+  timeoutMs = 30000,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const sock = getSocket();
@@ -165,7 +171,7 @@ export function emitWithResponse<T>(
 export function disconnectSocket(): void {
   if (socket) {
     socket.disconnect();
-    socket = null;
+    socket = undefined;
     isConnected = false;
     connectionPromise = undefined;
   }
