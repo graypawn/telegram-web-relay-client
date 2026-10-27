@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+
 import { ApiMessageEntityTypes } from '../types';
 
 import {
@@ -75,7 +77,7 @@ describe('relay message adapter', () => {
   });
 
   it('normalizes history responses through the request adapter', async () => {
-    const request = jest.fn().mockResolvedValue({
+    const request = vi.fn().mockResolvedValue({
       messages: [{
         id: 10,
         chatId: '20',

@@ -175,6 +175,7 @@ import EmbeddedStory from '../../common/embedded/EmbeddedStory';
 import FakeIcon from '../../common/FakeIcon';
 import Icon from '../../common/icons/Icon';
 import StarIcon from '../../common/icons/StarIcon';
+import MessageRichText from '../../common/MessageRichText';
 import MessageText from '../../common/MessageText';
 import PeerColorWrapper from '../../common/PeerColorWrapper';
 import RankBadge from '../../common/RankBadge';
@@ -295,6 +296,7 @@ type StateProps = {
   threadId?: ThreadId;
   isPinnedList?: boolean;
   isPinned?: boolean;
+  isMessagePrimaryEditedDateEnabled: boolean;
   canAutoLoadMedia?: boolean;
   canAutoPlayMedia?: boolean;
   hasLinkedChat?: boolean;
@@ -432,6 +434,7 @@ const Message = ({
   messageListType,
   isPinnedList,
   isPinned,
+  isMessagePrimaryEditedDateEnabled,
   isDownloading,
   canAutoLoadMedia,
   canAutoPlayMedia,
@@ -733,11 +736,12 @@ const Message = ({
     if (hasSummary && isShowingSummary && !summary) {
       summarizeMessage({
         chatId,
-        id: message.id,
+        id: messageId,
         toLanguageCode: requestedTranslationLanguage,
+        onError: hideSummary,
       });
     }
-  }, [hasSummary, chatId, message.id, requestedTranslationLanguage, isShowingSummary, summary]);
+  }, [hasSummary, chatId, messageId, requestedTranslationLanguage, isShowingSummary, summary, hideSummary]);
 
   const handleEffectClick = useLastCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
@@ -1123,6 +1127,22 @@ const Message = ({
   function renderMessageText(isForAnimation?: boolean) {
     if (!textMessage) return undefined;
 
+    if (textMessage.content.richMessage) {
+      return (
+        <MessageRichText
+          message={textMessage}
+          isOwn={isOwn}
+          noAvatars={noAvatars}
+          canAutoLoadMedia={canAutoLoadMedia}
+          isProtected={isProtected}
+          theme={theme}
+          observeIntersectionForLoading={observeIntersectionForLoading}
+          observeIntersectionForPlaying={observeIntersectionForPlaying}
+          threadId={threadId}
+        />
+      );
+    }
+
     const forcedText = (isShowingSummary && summary?.text)
       || (requestedTranslationLanguage ? currentTranslatedText : undefined);
     return (
@@ -1150,6 +1170,10 @@ const Message = ({
   }
 
   function renderMessageTextAnimation() {
+    if (textMessage?.content.richMessage) {
+      return undefined;
+    }
+
     return (
       <div className="translation-animation">
         <div className="text-loading">
@@ -1191,6 +1215,7 @@ const Message = ({
         message={message}
         isPinned={isPinned}
         withFullDate={isChatWithSelf && !isOwn}
+        isMessagePrimaryEditedDateEnabled={isMessagePrimaryEditedDateEnabled}
         noReplies={noReplies}
         repliesThreadInfo={repliesThreadInfo}
         outgoingStatus={outgoingStatus}
@@ -2304,6 +2329,7 @@ export default memo(withGlobal<OwnProps>(
       isDownloading,
       isPinnedList: messageListType === 'pinned',
       isPinned,
+      isMessagePrimaryEditedDateEnabled: Boolean(global.appConfig.isMessagePrimaryEditedDateEnabled),
       canAutoLoadMedia: selectCanAutoLoadMedia(global, message),
       canAutoPlayMedia: selectCanAutoPlayMedia(global, message),
       autoLoadFileMaxSizeMb: global.settings.byKey.autoLoadFileMaxSizeMb,

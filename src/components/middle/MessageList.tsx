@@ -10,6 +10,7 @@ import { LoadMoreDirection, type MessageListType, type ThreadId } from '../../ty
 import {
   ANIMATION_END_DELAY,
   ANONYMOUS_USER_ID,
+  IS_PERF,
   MESSAGE_LIST_SLICE,
   SCROLL_MAX_DURATION,
   SERVICE_NOTIFICATIONS_USER_ID,
@@ -66,6 +67,7 @@ import { orderBy } from '../../util/iteratees';
 import { isLocalMessageId } from '../../util/keys/messageKey';
 import resetScroll from '../../util/resetScroll';
 import { debounce, onTickEnd } from '../../util/schedulers';
+import { getServerTime } from '../../util/serverTime';
 import getOffsetToContainer from '../../util/visibility/getOffsetToContainer';
 import { REM } from '../common/helpers/mediaDimensions';
 import { groupMessages } from './helpers/groupMessages';
@@ -106,7 +108,8 @@ type OwnProps = {
   paidMessagesStars?: number;
   isQuickPreview?: boolean;
   onScrollDownToggle?: BooleanToVoidFunction;
-  onNotchToggle?: AnyToVoidFunction;
+  onBottomNotchToggle?: AnyToVoidFunction;
+  onTopNotchToggle?: AnyToVoidFunction;
   onIntersectPinnedMessage?: OnIntersectPinnedMessage;
 };
 
@@ -154,6 +157,7 @@ type StateProps = {
   isActive?: boolean;
   canManageBotForumTopics?: boolean;
   shouldScrollToBottom?: boolean;
+  reactionPollingPause?: { until: number; chatId: string };
 };
 
 enum Content {
@@ -252,10 +256,12 @@ const MessageList = ({
   canTranslate,
   translationLanguage,
   shouldAutoTranslate,
+  reactionPollingPause,
   isQuickPreview,
   onIntersectPinnedMessage,
   onScrollDownToggle,
-  onNotchToggle,
+  onBottomNotchToggle,
+  onTopNotchToggle,
 }: OwnProps & StateProps) => {
   const {
     loadViewportMessages, setScrollOffset, loadSponsoredMessages, loadMessageReactions, copyMessagesByIds,
@@ -504,6 +510,7 @@ const MessageList = ({
   useInterval(() => {
     if (!messageIds || !messagesById || type === 'scheduled' || isAccountFrozen || !isActive) return;
     if (!isChannelChat && !isGroupChat) return;
+    if (reactionPollingPause?.chatId === chatId && reactionPollingPause.until > getServerTime()) return;
 
     const ids = messageIds.filter((id) => {
       const message = messagesById[id];
@@ -758,7 +765,7 @@ const MessageList = ({
   useLayoutEffectWithPrevDeps(([
     prevMessageIds, prevIsViewportNewest, prevCurrentLastMessageOriginalId, prevLiveTailStartOriginalId,
   ]) => {
-    if (process.env.APP_ENV === 'perf') {
+    if (IS_PERF) {
       // eslint-disable-next-line no-console
       console.time('scrollTop');
     }
@@ -1038,7 +1045,7 @@ const MessageList = ({
           });
         }
 
-        if (process.env.APP_ENV === 'perf') {
+        if (IS_PERF) {
           // eslint-disable-next-line no-console
           console.timeEnd('scrollTop');
         }
@@ -1180,7 +1187,8 @@ const MessageList = ({
         canManageBotForumTopics={canManageBotForumTopics}
         shouldScrollToBottom={shouldScrollToBottom}
         onScrollDownToggle={onScrollDownToggle}
-        onNotchToggle={onNotchToggle}
+        onBottomNotchToggle={onBottomNotchToggle}
+        onTopNotchToggle={onTopNotchToggle}
         onIntersectPinnedMessage={onIntersectPinnedMessage}
       />
     ) : (
@@ -1318,6 +1326,7 @@ export default memo(withGlobal<OwnProps>(
       shouldAutoTranslate,
       canManageBotForumTopics: chat.isBotForum && user?.canManageBotForumTopics,
       shouldScrollToBottom,
+      reactionPollingPause: global.reactionPollingPause,
     };
   },
 )(MessageList));

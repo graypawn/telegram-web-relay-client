@@ -7,6 +7,7 @@
   flex: 1;
 
   width: 100%;
+  margin-top: 0.5rem;
   margin-bottom: 0.5rem;
 
   /* stylelint-disable-next-line plugin/no-low-performance-animation-properties */
@@ -66,6 +67,10 @@
 
       .message-list-item {
         animation: live-tail-message-mount 0.2s ease-out;
+
+        &.own {
+          transform-origin: bottom right;
+        }
 
         body.no-message-sending-animations & {
           animation: none;

@@ -9,7 +9,7 @@ import type {
 } from '../../types';
 import { MAIN_THREAD_ID } from '../../../api/types';
 
-import { SERVICE_NOTIFICATIONS_USER_ID } from '../../../config';
+import { ARCHIVED_FOLDER_ID, SERVICE_NOTIFICATIONS_USER_ID } from '../../../config';
 import { areDeepEqual } from '../../../util/areDeepEqual';
 import { isUserId } from '../../../util/entities/ids';
 import { getCurrentTabId } from '../../../util/establishMultitabRole';
@@ -42,6 +42,7 @@ import {
   setGlobal,
 } from '../../index';
 import {
+  addChatListIds,
   addMessages,
   addViewportId,
   clearMessageSummary,
@@ -367,6 +368,17 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
         }
       }
 
+      const chatListType = chat?.folderId === ARCHIVED_FOLDER_ID ? 'archived' : 'active';
+      const shouldRestoreChatInList = (
+        !isLocal && !isActionMessage(newMessage) && !chat?.isNotJoined
+        && !selectIsChatListed(global, chatId, chatListType)
+      );
+      if (shouldRestoreChatInList && chat) {
+        if (global.chats.listIds[chatListType]) {
+          global = addChatListIds(global, chatListType, [chatId]);
+        }
+      }
+
       setGlobal(global);
 
       if (shouldBumpGuestBotTopPeer(global, newMessage)) {
@@ -386,7 +398,7 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
       }
 
       // Reload dialogs if chat is not present in the list
-      if (!isLocal && !chat?.isNotJoined && !selectIsChatListed(global, chatId)) {
+      if (shouldRestoreChatInList) {
         actions.loadTopChats();
       }
 
@@ -669,7 +681,7 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
 
       const currentMessage = selectChatMessage(global, chatId, localId);
 
-      global = deleteChatMessages(global, chatId, [localId]);
+      global = deleteChatMessages(global, chatId, [localId], { shouldPreserveMedia: true });
 
       // Edge case for "Send When Online"
       if (message.isScheduled) {
@@ -1136,7 +1148,7 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
     }
 
     case 'updateChatTypingDraft': {
-      const { id, chatId, threadId = MAIN_THREAD_ID, text } = update;
+      const { id, chatId, threadId = MAIN_THREAD_ID, text, richMessage } = update;
       const thread = selectThread(global, chatId, threadId);
       if (!thread) return undefined;
 
@@ -1173,6 +1185,7 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
         global = updateChatMessage(global, chatId, messageId, {
           content: {
             text,
+            richMessage,
           },
           editDate: getServerTime(),
         });
@@ -1190,6 +1203,7 @@ addActionHandler('apiUpdate', (global, actions, update): ActionReturnType => {
         chatId,
         threadId,
         text,
+        richMessage,
       });
 
       actions.apiUpdate({
@@ -1311,7 +1325,7 @@ export function updateWithLocalMedia(
   // Preserve locally uploaded media.
   if (currentMessage && messageUpdate.content && !isLocalMessageId(id)) {
     const {
-      photo, video, sticker, document,
+      photo, video, document,
     } = getMessageContent(currentMessage);
 
     if (photo && messageUpdate.content.photo) {
@@ -1319,8 +1333,6 @@ export function updateWithLocalMedia(
       messageUpdate.content.photo.thumbnail ??= photo.thumbnail;
     } else if (video && messageUpdate.content.video) {
       messageUpdate.content.video.blobUrl ??= video.blobUrl;
-    } else if (sticker && messageUpdate.content.sticker) {
-      messageUpdate.content.sticker.isPreloadedGlobally ??= sticker.isPreloadedGlobally;
     } else if (document && messageUpdate.content.document) {
       messageUpdate.content.document.previewBlobUrl ??= document.previewBlobUrl;
     }

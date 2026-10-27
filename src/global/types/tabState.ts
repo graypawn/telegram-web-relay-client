@@ -84,6 +84,7 @@ import type {
   ManagementState,
   MediaViewerMedia,
   MediaViewerOrigin,
+  MediaViewerPageMedia,
   MessageList,
   MessageListType,
   MiddleSearchParams,
@@ -110,6 +111,11 @@ import type { CallbackAction } from './actions';
 export type PollVote = {
   peerId: string;
   date: number;
+};
+
+export type ReactionDeletionContext = {
+  peerId: string;
+  count: number;
 };
 
 export type AiEditorTabBase = {
@@ -383,6 +389,7 @@ export type TabState = {
     isAvatarView?: boolean;
     isSponsoredMessage?: boolean;
     standaloneMedia?: MediaViewerMedia[];
+    pageMedia?: MediaViewerPageMedia;
     origin?: MediaViewerOrigin;
     volume: number;
     playbackRate: number;
@@ -403,6 +410,9 @@ export type TabState = {
   };
 
   webPagePreviewId?: string;
+  instantViewModal?: {
+    webPageId: string;
+  };
 
   loadingThread?: {
     loadingChatId: string;
@@ -732,6 +742,7 @@ export type TabState = {
     messageIds: number[];
     isSchedule?: boolean;
     onConfirm?: NoneToVoidFunction;
+    reactionContext?: ReactionDeletionContext;
   };
 
   isWebAppsCloseConfirmationModalOpen?: boolean;
