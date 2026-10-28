@@ -308,7 +308,7 @@ function subscribeToSocketEvents() {
       '@type': 'newMessage',
       id: apiMessage.id,
       chatId: apiMessage.chatId,
-      message: apiMessage as any,
+      message: apiMessage,
     });
   });
 

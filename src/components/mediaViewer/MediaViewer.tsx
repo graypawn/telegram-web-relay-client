@@ -1,4 +1,3 @@
-import type React from '../../lib/teact/teact';
 import {
   beginHeavyAnimation,
   memo, useEffect, useLayoutEffect, useMemo, useRef,
@@ -46,12 +45,13 @@ import {
 import { stopCurrentAudio } from '../../util/audioPlayer';
 import { IS_TAURI } from '../../util/browser/globalEnvironment';
 import { IS_MAC_OS } from '../../util/browser/windowEnvironment';
+import captureKeyboardListeners from '../../util/captureKeyboardListeners';
 import { disableDirectTextInput, enableDirectTextInput } from '../../util/directInputManager';
 import { isUserId } from '../../util/entities/ids';
 import { MEDIA_VIEWER_MEDIA_QUERY } from '../common/helpers/mediaDimensions';
 import { renderMessageText } from '../common/helpers/renderMessageText';
-import { getMediaViewerItem, type MediaViewerItem, type ViewableMedia } from './helpers/getViewableMedia';
 import selectViewableMedia from './helpers/getViewableMedia';
+import { getMediaViewerItem, type MediaViewerItem, type ViewableMedia } from './helpers/getViewableMedia';
 import { animateClosing, animateOpening } from './helpers/ghostAnimation';
 
 import useAppLayout from '../../hooks/useAppLayout';
@@ -293,6 +293,13 @@ const MediaViewer = ({
   ]);
 
   const handleClose = useLastCallback(() => closeMediaViewer());
+  const handleEsc = useLastCallback((event: KeyboardEvent) => {
+    event.preventDefault();
+
+    if (isOpen) {
+      handleClose();
+    }
+  });
 
   const shouldShowDialog = isOpen && !isHidden;
   const { shouldRender: shouldRenderDialog } = useShowTransition<HTMLDialogElement>({
@@ -348,6 +355,10 @@ const MediaViewer = ({
       dialog.removeEventListener('cancel', handleCancel);
     };
   }, [handleClose, shouldKeepDialogOpen]);
+
+  useEffect(() => (
+    shouldKeepDialogOpen ? captureKeyboardListeners({ onEsc: handleEsc }) : undefined
+  ), [handleEsc, shouldKeepDialogOpen]);
 
   const handleFooterClick = useLastCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target instanceof HTMLElement && e.target.closest('a')) return; // Prevent closing on timestamp click

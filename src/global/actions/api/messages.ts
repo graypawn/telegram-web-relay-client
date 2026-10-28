@@ -8,6 +8,7 @@ import type {
   ApiInputStoryReplyInfo,
   ApiInputSuggestedPostInfo,
   ApiMessage,
+  ApiMessageReadMetric,
   ApiOnProgress,
   ApiStory,
   ApiUser,
@@ -22,7 +23,7 @@ import type {
 import type { MessageKey } from '../../../util/keys/messageKey';
 import type { RequiredGlobalActions } from '../../index';
 import type {
-  ActionReturnType, GlobalState, TabArgs,
+  ActionReturnType, GlobalState, ReportSection, TabArgs,
 } from '../../types';
 import { MAIN_THREAD_ID, MESSAGE_DELETED } from '../../../api/types';
 import { LoadMoreDirection } from '../../../types';
@@ -906,7 +907,7 @@ addActionHandler('updateDraftSuggestedPostInfo', (global, actions, payload): Act
   const updatedSuggestedPostInfo = {
     ...currentDraft?.suggestedPostInfo,
     ...update,
-  } as ApiInputSuggestedPostInfo;
+  } satisfies ApiInputSuggestedPostInfo;
 
   const newDraft: ApiDraft = {
     ...currentDraft,
@@ -1035,12 +1036,16 @@ async function saveDraft<T extends GlobalState>({
     draft: newDraft,
   });
 
-  if (result && newDraft) {
-    newDraft.isLocal = false;
-  }
+  if (!result || !newDraft) return;
 
   global = getGlobal();
-  global = replaceThreadLocalStateParam(global, chatId, threadId, 'draft', newDraft);
+  if (selectDraft(global, chatId, threadId) !== newDraft) return;
+
+  const savedDraft: ApiDraft = {
+    ...newDraft,
+    isLocal: false,
+  };
+  global = replaceThreadLocalStateParam(global, chatId, threadId, 'draft', savedDraft);
 
   setGlobal(global);
 }
@@ -1218,21 +1223,86 @@ addActionHandler('reportMessages', async (global, actions, payload): Promise<voi
     messageIds, description = '', option = '', chatId, tabId = getCurrentTabId(),
   } = payload;
   const chat = selectChat(global, chatId)!;
+  const { selectedMessages, reportModal } = selectTabState(global, tabId);
+  const reportContext = selectedMessages?.reportContext;
+  const reportSections = reportContext?.sections || reportModal?.sections || [];
+  const latestReportSection = reportSections[reportSections.length - 1];
+  const selectedOption = latestReportSection?.type === 'options'
+    ? latestReportSection.options.find((item) => item.option === option)
+    : undefined;
+  const reportTitle = reportContext?.title || selectedOption?.text || latestReportSection?.title;
 
-  const response = await callApi('reportMessages', {
-    peer: chat, messageIds, description, option,
-  });
+  if (reportContext) {
+    global = updateTabState(global, {
+      selectedMessages: {
+        ...selectedMessages,
+        reportContext: {
+          ...reportContext,
+          isSubmitting: true,
+        },
+      },
+    }, tabId);
+    setGlobal(global);
+  }
 
-  if (!response) return;
+  let response;
+  try {
+    response = await callApi('reportMessages', {
+      peer: chat, messageIds, description, option,
+    });
+  } catch (err) {
+    actions.closeReportModal({ tabId });
+    if (reportContext) actions.exitMessageSelectMode({ tabId });
+    throw err;
+  }
+
+  if (!response) {
+    if (!reportContext) return;
+
+    global = getGlobal();
+    const currentSelectedMessages = selectTabState(global, tabId).selectedMessages;
+    const currentReportContext = currentSelectedMessages?.reportContext;
+    if (currentReportContext?.sections !== reportContext.sections) return;
+
+    global = updateTabState(global, {
+      selectedMessages: {
+        ...currentSelectedMessages!,
+        reportContext: {
+          ...currentReportContext,
+          isSubmitting: undefined,
+        },
+      },
+    }, tabId);
+    setGlobal(global);
+    return;
+  }
+
+  if (reportContext) {
+    global = getGlobal();
+    if (selectTabState(global, tabId).selectedMessages?.reportContext?.sections !== reportContext.sections) {
+      return;
+    }
+  }
 
   const { result, error } = response;
 
   if (error === MESSAGE_ID_REQUIRED_ERROR) {
-    actions.showNotification({
-      message: oldTranslate('lng_report_please_select_messages'),
-      tabId,
-    });
-    actions.closeReportModal({ tabId });
+    global = getGlobal();
+    const currentSelectedMessages = selectTabState(global, tabId).selectedMessages;
+    global = updateTabState(global, {
+      reportModal: undefined,
+      selectedMessages: {
+        chatId,
+        messageIds: reportContext ? currentSelectedMessages?.messageIds || [] : [],
+        reportContext: {
+          option,
+          description,
+          title: reportTitle,
+          sections: reportSections,
+        },
+      },
+    }, tabId);
+    setGlobal(global);
     return;
   }
 
@@ -1246,25 +1316,28 @@ addActionHandler('reportMessages', async (global, actions, payload): Promise<voi
       tabId,
     });
     actions.closeReportModal({ tabId });
+    if (reportContext) {
+      actions.exitMessageSelectMode({ tabId });
+    }
     return;
   }
 
   if (result.type === 'selectOption') {
     global = getGlobal();
-    const oldSections = selectTabState(global, tabId).reportModal?.sections;
-    const selectedOption = oldSections?.[oldSections.length - 1]?.options?.find((o) => o.option === option);
     const newSection = {
+      type: 'options',
       title: result.title,
       options: result.options,
-      subtitle: selectedOption?.text,
-    };
+      subtitle: reportTitle,
+    } satisfies ReportSection;
     global = updateTabState(global, {
+      selectedMessages: reportContext ? undefined : selectTabState(global, tabId).selectedMessages,
       reportModal: {
         chatId,
         messageIds,
         description,
         subject: 'message',
-        sections: oldSections ? [...oldSections, newSection] : [newSection],
+        sections: [...reportSections, newSection],
       },
     }, tabId);
     setGlobal(global);
@@ -1272,20 +1345,20 @@ addActionHandler('reportMessages', async (global, actions, payload): Promise<voi
 
   if (result.type === 'comment') {
     global = getGlobal();
-    const oldSections = selectTabState(global, tabId).reportModal?.sections;
-    const selectedOption = oldSections?.[oldSections.length - 1]?.options?.find((o) => o.option === option);
     const newSection = {
+      type: 'comment',
       isOptional: result.isOptional,
       option: result.option,
-      title: selectedOption?.text,
-    };
+      title: reportTitle,
+    } satisfies ReportSection;
     global = updateTabState(global, {
+      selectedMessages: reportContext ? undefined : selectTabState(global, tabId).selectedMessages,
       reportModal: {
         chatId,
         messageIds,
         description,
         subject: 'message',
-        sections: oldSections ? [...oldSections, newSection] : [newSection],
+        sections: [...reportSections, newSection],
       },
     }, tabId);
     setGlobal(global);
@@ -2581,7 +2654,7 @@ addActionHandler('openUrl', async (global, actions, payload): Promise<void> => {
   if (tryInstant) {
     const localWebPage = previewId ? selectWebPage(global, previewId) : undefined;
     if (localWebPage?.webpageType === 'full' && localWebPage.cachedPage) {
-      actions.openInstantView({ webPageId: localWebPage.id, tabId });
+      actions.openBrowserTab({ tab: { type: 'instantView', webPageId: localWebPage.id }, tabId });
       return;
     }
 
@@ -2594,13 +2667,17 @@ addActionHandler('openUrl', async (global, actions, payload): Promise<void> => {
     }
 
     if (webPage?.webpageType === 'full' && webPage.cachedPage) {
-      actions.openInstantView({ webPageId: webPage.id, tabId });
+      actions.openBrowserTab({ tab: { type: 'instantView', webPageId: webPage.id }, tabId });
       return;
     }
   }
 
   const { appConfig, config } = global;
-  if (config?.autologinToken && appConfig.autologinDomains.includes(parsedUrl.hostname)) {
+  if (
+    parsedUrl.protocol === 'https:'
+    && config?.autologinToken
+    && appConfig.autologinDomains.includes(parsedUrl.hostname)
+  ) {
     parsedUrl.searchParams.set(AUTOLOGIN_TOKEN_KEY, config.autologinToken);
     window.open(parsedUrl.href, '_blank', 'noopener');
     return;
@@ -3122,6 +3199,50 @@ addActionHandler('loadMessageViews', async (global, actions, payload): Promise<v
   });
 
   setGlobal(global);
+});
+
+const SEND_READ_METRICS_TIMEOUT = 1000;
+let readMetricsReportTimeout: number | undefined;
+let readMetricsToReport: Record<string, ApiMessageReadMetric[]> = {};
+
+function reportMessageReadMetrics() {
+  if (readMetricsReportTimeout) {
+    clearTimeout(readMetricsReportTimeout);
+    readMetricsReportTimeout = undefined;
+  }
+
+  const currentReadMetricsToReport = readMetricsToReport;
+  readMetricsToReport = {};
+
+  const global = getGlobal();
+  if (selectIsCurrentUserFrozen(global)) return;
+
+  Object.entries(currentReadMetricsToReport).forEach(([chatId, metrics]) => {
+    if (!metrics.length) return;
+
+    const chat = selectChat(global, chatId);
+    if (!chat) return;
+
+    void callApi('reportMessageReadMetrics', { chat, metrics });
+  });
+}
+
+addActionHandler('scheduleMessageReadMetricsReport', (global, actions, payload): ActionReturnType => {
+  const { chatId, metrics } = payload;
+
+  if (!metrics.length) return undefined;
+
+  if (!readMetricsReportTimeout) {
+    readMetricsReportTimeout = window.setTimeout(reportMessageReadMetrics, SEND_READ_METRICS_TIMEOUT);
+  }
+
+  if (!readMetricsToReport[chatId]) {
+    readMetricsToReport[chatId] = [];
+  }
+
+  readMetricsToReport[chatId].push(...metrics);
+
+  return undefined;
 });
 
 addActionHandler('loadFactChecks', async (global, actions, payload): Promise<void> => {

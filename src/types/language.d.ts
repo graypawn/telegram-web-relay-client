@@ -65,6 +65,7 @@ export interface LangPair {
   'PageContentEmbed': undefined;
   'ConversationDefaultRestrictedMedia': undefined;
   'AccDescrVoiceMessage': undefined;
+  'AccDescrVideoMessage': undefined;
   'BotSettings': undefined;
   'Privacy': undefined;
   'BotHelp': undefined;
@@ -277,6 +278,7 @@ export interface LangPair {
   'ReportPeerReport': undefined;
   'ReportReasonDescription': undefined;
   'ReportButton': undefined;
+  'ReportChatMessagesRequired': undefined;
   'StickersRemoveFromFavorites': undefined;
   'StickersAddToFavorites': undefined;
   'ViewPackPreview': undefined;
@@ -578,6 +580,8 @@ export interface LangPair {
   'MediaviewProfilePhoto': undefined;
   'AccActionPlay': undefined;
   'AttachAudio': undefined;
+  'AttachVideoMessage': undefined;
+  'PlayOnceVideoMessageTooltip': undefined;
   'NewContactAdd': undefined;
   'NewContactBlock': undefined;
   'ReportSpamAndLeave': undefined;
@@ -590,6 +594,8 @@ export interface LangPair {
   'AttachmentMenuPhotoOrVideo': undefined;
   'AttachDocument': undefined;
   'Poll': undefined;
+  'VideoMessagePermissionDenied': undefined;
+  'VideoMessageRecordError': undefined;
   'SendMessageAsTitle': undefined;
   'Message': undefined;
   'RecentStickers': undefined;
@@ -613,6 +619,12 @@ export interface LangPair {
   'PollAllowVoteChangesDescription': undefined;
   'PollRandomOrder': undefined;
   'PollRandomOrderDescription': undefined;
+  'PollRestrictToSubscribers': undefined;
+  'PollRestrictToSubscribersDescription': undefined;
+  'PollLimitByCountry': undefined;
+  'PollLimitByCountryDescription': undefined;
+  'PollAllowedCountries': undefined;
+  'PollChooseCountry': undefined;
   'PollLimitedDuration': undefined;
   'PollLimitedDurationDescription': undefined;
   'PollDuration': undefined;
@@ -957,6 +969,9 @@ export interface LangPair {
   'SaveLink': undefined;
   'CreateLink': undefined;
   'LinkCopied': undefined;
+  'QrCodeTitle': undefined;
+  'QrCodeCopy': undefined;
+  'QrCodeCopied': undefined;
   'NoOneJoined': undefined;
   'NoOneJoinedYet': undefined;
   'CopyLink': undefined;
@@ -1240,6 +1255,13 @@ export interface LangPair {
   'ComposerStoryPlaceholderLocked': undefined;
   'ComposerPlaceholderNoText': undefined;
   'AriaComposerCancelVoice': undefined;
+  'VoiceRecordMicError': undefined;
+  'AriaComposerPauseVoice': undefined;
+  'AriaComposerResumeVoice': undefined;
+  'AriaComposerPauseVideo': undefined;
+  'AriaComposerResumeVideo': undefined;
+  'AriaComposerPlayVoice': undefined;
+  'AriaComposerPausePlayback': undefined;
   'PreviewEditMessage': undefined;
   'FileDropZoneTitle': undefined;
   'FileDropZoneQuick': undefined;
@@ -1455,8 +1477,8 @@ export interface LangPair {
   'PopularApps': undefined;
   'SearchApps': undefined;
   'Apps': undefined;
-  'AreYouSureCloseMiniApps': undefined;
-  'CloseMiniApps': undefined;
+  'AreYouSureCloseBrowserTabs': undefined;
+  'CloseBrowserTabs': undefined;
   'DoNotAskAgain': undefined;
   'PaymentInfoDone': undefined;
   'DeleteMyAccount': undefined;
@@ -2379,6 +2401,15 @@ export interface LangPairWithVariables<V = LangVariable> {
   'NoVoiceMessagesAllowed': {
     'user': V;
   };
+  'VideoMessagesRestrictedByPrivacy': {
+    'user': V;
+  };
+  'PollSubscriberRestriction': {
+    'channel': V;
+  };
+  'PollCountryRestriction': {
+    'countries': V;
+  };
   'ErrorFloodTime': {
     'time': V;
   };
@@ -2406,6 +2437,10 @@ export interface LangPairWithVariables<V = LangVariable> {
   };
   'PollResultsTime': {
     'time': V;
+  };
+  'PollResultsAnswerTitle': {
+    'answer': V;
+    'percent': V;
   };
   'TimeIn': {
     'time': V;
@@ -3903,6 +3938,12 @@ export interface LangPairPluralWithVariables<V = LangVariable> {
   'PreviewSenderSendFile': {
     'count': V;
   };
+  'PollCountriesCount': {
+    'count': V;
+  };
+  'PollCountriesLimit': {
+    'count': V;
+  };
   'ErrorMessageTooLong': {
     'count': V;
   };
@@ -4109,8 +4150,8 @@ export interface LangPairPluralWithVariables<V = LangVariable> {
   'StarsAmountText': {
     'amount': V;
   };
-  'MiniAppsMoreTabs': {
-    'botName': V;
+  'BrowserMoreTabs': {
+    'title': V;
     'count': V;
   };
   'PrizeCredits2': {

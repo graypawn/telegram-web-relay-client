@@ -22,6 +22,15 @@ export interface ApiDimensions {
   height: number;
 }
 
+export type ApiMessageReadMetric = {
+  messageId: number;
+  viewId: string;
+  timeInViewMs: number;
+  activeTimeInViewMs: number;
+  heightToViewportRatioPermille: number;
+  seenRangeRatioPermille: number;
+};
+
 export interface ApiPhotoSize extends ApiDimensions {
   type: 's' | 'm' | 'x' | 'y' | 'w';
 }
@@ -211,6 +220,8 @@ export interface ApiPoll {
   shouldShuffleAnswers?: true;
   shouldHideResultsUntilClose?: true;
   isCreator?: true;
+  isRestrictedToSubscribers?: true;
+  allowedCountryCodes?: string[];
   question: ApiFormattedText;
   answers: ApiPollAnswer[];
   closePeriod?: number;
@@ -1126,7 +1137,7 @@ export type ApiReportReason = 'spam' | 'violence' | 'pornography' | 'childAbuse'
   | 'copyright' | 'geoIrrelevant' | 'fake' | 'illegalDrugs' | 'personalDetails' | 'other';
 
 export type ApiSendMessageAction = {
-  type: 'cancel' | 'typing' | 'recordAudio' | 'chooseSticker' | 'playingGame';
+  type: 'cancel' | 'typing' | 'recordAudio' | 'recordRound' | 'chooseSticker' | 'playingGame';
 };
 
 export type ApiThemeParameters = {

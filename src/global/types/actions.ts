@@ -28,6 +28,7 @@ import type {
   ApiLimitTypeWithModal,
   ApiMessage,
   ApiMessageEntity,
+  ApiMessageReadMetric,
   ApiMessageSearchContext,
   ApiNewMediaTodo,
   ApiNotification,
@@ -114,7 +115,8 @@ import type {
   TranslationTone,
   WebPageMediaSize,
 } from '../../types';
-import type { WebApp, WebAppModalStateType, WebAppOutboundEvent } from '../../types/webapp';
+import type { BrowserModalStateType, BrowserTab } from '../../types/browser';
+import type { WebApp, WebAppOutboundEvent } from '../../types/webapp';
 import type { DownloadableMedia } from '../helpers';
 import type { SharedState } from './sharedState';
 import type { ReactionDeletionContext, TabState } from './tabState';
@@ -725,6 +727,7 @@ export interface ActionPayloads {
     messageId?: number;
     commentId?: number;
     startParam?: string;
+    startGroup?: string;
     ref?: string;
     startAttach?: string;
     attach?: string;
@@ -960,11 +963,6 @@ export interface ActionPayloads {
     messageId?: number;
   } & WithTabId;
   closeChatLanguageModal: WithTabId | undefined;
-  openInstantView: {
-    webPageId: string;
-  } & WithTabId;
-  closeInstantView: WithTabId | undefined;
-
   // poll result
   openPollResults: {
     chatId: string;
@@ -1485,6 +1483,10 @@ export interface ActionPayloads {
     ids: number[];
     shouldIncrement?: boolean;
   };
+  scheduleMessageReadMetricsReport: {
+    chatId: string;
+    metrics: ApiMessageReadMetric[];
+  };
   loadFactChecks: {
     chatId: string;
     ids: number[];
@@ -1978,7 +1980,7 @@ export interface ActionPayloads {
   loadCommonChats: {
     userId: string;
   };
-  reportSpam: { chatId: string };
+  reportSpam: { chatId: string } & WithTabId;
   loadFullUser: { userId: string; withPhotos?: boolean };
   openAddContactDialog: { userId?: string } & WithTabId;
   openNewContactDialog: WithTabId | undefined;
@@ -2231,8 +2233,9 @@ export interface ActionPayloads {
   resetAllInlineBots: WithTabId | undefined;
   startBot: {
     botId: string;
+    chatId?: string;
     param?: string;
-  };
+  } & WithTabId;
   restartBot: {
     chatId: string;
   } & WithTabId;
@@ -2291,6 +2294,7 @@ export interface ActionPayloads {
     shouldMarkBotTrusted?: boolean;
   } & WithTabId;
   prolongWebView: {
+    key: string;
     botId: string;
     peerId: string;
     queryId: string;
@@ -2317,8 +2321,8 @@ export interface ActionPayloads {
     isFromConfirm?: boolean;
     shouldSkipBotTrustRequest?: boolean;
   } & WithTabId;
-  openWebAppTab: {
-    webApp?: WebApp;
+  openBrowserTab: {
+    tab?: BrowserTab;
   } & WithTabId;
   openChatInviteWebView: {
     botId: string;
@@ -2326,12 +2330,14 @@ export interface ActionPayloads {
     queryId?: string;
     peerId?: string;
     isFullscreen?: boolean;
+    isSameOrigin?: true;
     isBroadcast?: boolean;
   } & WithTabId;
   loadPreviewMedias: {
     botId: string;
   };
   setWebAppPaymentSlug: {
+    key: string;
     slug?: string;
   } & WithTabId;
 
@@ -2357,6 +2363,12 @@ export interface ActionPayloads {
     startParam?: string;
   } & WithTabId;
   cancelAttachBotInChat: WithTabId | undefined;
+
+  requestBotStartGroup: {
+    bot: ApiUser;
+    startParam?: string;
+  } & WithTabId;
+  cancelBotStartGroup: WithTabId | undefined;
 
   sendWebViewData: {
     bot: ApiUser;
@@ -2441,10 +2453,9 @@ export interface ActionPayloads {
     chatId: string;
     usernames: string[];
   };
-  closeActiveWebApp: WithTabId | undefined;
   openMoreAppsTab: WithTabId | undefined;
   closeMoreAppsTab: WithTabId | undefined;
-  closeWebApp: {
+  closeBrowserTab: {
     key: string;
     skipClosingConfirmation?: boolean;
   } & WithTabId;
@@ -2452,16 +2463,16 @@ export interface ActionPayloads {
     webAppKey: string;
     event: WebAppOutboundEvent;
   } & WithTabId;
-  closeWebAppModal: ({
+  closeBrowserModal: ({
     shouldSkipConfirmation?: boolean;
   } & WithTabId) | undefined;
-  changeWebAppModalState: {
-    state: WebAppModalStateType;
+  changeBrowserModalState: {
+    state: BrowserModalStateType;
   } & WithTabId;
-  updateMiniAppCachedPosition: {
+  updateBrowserCachedPosition: {
     position: Point;
   };
-  updateMiniAppCachedSize: {
+  updateBrowserCachedSize: {
     size: Size;
   };
   // Misc
@@ -2556,6 +2567,11 @@ export interface ActionPayloads {
   } & WithTabId;
   closeCollectibleInfoModal: WithTabId | undefined;
 
+  openQrCodeModal: {
+    peerId: string;
+  } & WithTabId;
+  closeQrCodeModal: WithTabId | undefined;
+
   // Calls
   joinGroupCall: {
     chatId?: string;
@@ -2621,7 +2637,7 @@ export interface ActionPayloads {
   setPasscode: { passcode: string } & WithTabId;
   clearPasscode: undefined;
   lockScreen: undefined;
-  unlockScreen: { sessionJson: string; globalJson: string };
+  unlockScreen: { sessionJson: string; globalJson: string; sharedStateJson?: string };
   softSignIn: undefined;
   logInvalidUnlockAttempt: undefined;
   resetInvalidUnlockAttempts: undefined;
@@ -2793,9 +2809,9 @@ export interface ActionPayloads {
   openQuickChatPicker: WithTabId | undefined;
   closeQuickChatPicker: WithTabId | undefined;
 
-  openWebAppsCloseConfirmationModal: WithTabId | undefined;
+  openBrowserCloseConfirmationModal: WithTabId | undefined;
 
-  closeWebAppsCloseConfirmationModal: ({
+  closeBrowserCloseConfirmationModal: ({
     shouldSkipInFuture?: boolean;
   } & WithTabId);
 

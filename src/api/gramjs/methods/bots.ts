@@ -115,19 +115,22 @@ export async function sendInlineBotResult({
 }
 
 export async function startBot({
-  bot, startParam,
+  bot, peer = bot, startParam,
 }: {
   bot: ApiUser;
+  peer?: ApiPeer;
   startParam?: string;
 }) {
   const randomId = generateRandomBigInt();
 
-  await invokeRequest(new GramJs.messages.StartBot({
+  return invokeRequest(new GramJs.messages.StartBot({
     bot: buildInputUser(bot.id, bot.accessHash),
-    peer: buildInputPeer(bot.id, bot.accessHash),
+    peer: buildInputPeer(peer.id, peer.accessHash),
     randomId,
     startParam: startParam ?? DEFAULT_PRIMITIVES.STRING,
-  }));
+  }), {
+    shouldReturnTrue: true,
+  });
 }
 
 export async function requestWebView({
@@ -172,6 +175,7 @@ export async function requestWebView({
       url: result.url,
       queryId: result.queryId?.toString(),
       isFullScreen: Boolean(result.fullscreen),
+      isSameOrigin: result.sameOrigin,
     };
   }
 
@@ -208,6 +212,7 @@ export async function requestMainWebView({
     url: result.url,
     queryId: result.queryId?.toString(),
     isFullscreen: Boolean(result.fullscreen),
+    isSameOrigin: result.sameOrigin,
   };
 }
 
@@ -236,7 +241,14 @@ export async function requestSimpleWebView({
     fromSideMenu: isFromSideMenu || undefined,
   }));
 
-  return result?.url;
+  if (!(result instanceof GramJs.WebViewResultUrl)) {
+    return undefined;
+  }
+
+  return {
+    url: result.url,
+    isSameOrigin: result.sameOrigin,
+  };
 }
 
 export async function fetchBotApp({
@@ -286,7 +298,15 @@ export async function requestAppWebView({
     fullscreen: mode === 'fullscreen' || undefined,
   }));
 
-  return { url: result?.url, isFullscreen: Boolean(result?.fullscreen) };
+  if (!(result instanceof GramJs.WebViewResultUrl)) {
+    return undefined;
+  }
+
+  return {
+    url: result.url,
+    isFullscreen: Boolean(result.fullscreen),
+    isSameOrigin: result.sameOrigin,
+  };
 }
 
 export function prolongWebView({
