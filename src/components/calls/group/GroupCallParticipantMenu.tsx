@@ -1,5 +1,4 @@
 import type { ElementRef, FC } from '../../../lib/teact/teact';
-import type React from '../../../lib/teact/teact';
 import { memo, useEffect, useState } from '../../../lib/teact/teact';
 import { getActions, withGlobal } from '../../../global';
 
@@ -221,7 +220,7 @@ const GroupCallParticipantMenu: FC<OwnProps & StateProps> = ({
           {!isSelf && (
             // TODO cross mic
             <MenuItem
-              icon={isMuted ? (isAdmin && shouldRaiseHand ? 'allow-speak' : 'microphone-alt') : 'microphone-alt'}
+              icon={isMuted ? (isAdmin && shouldRaiseHand ? 'allow-speak' : 'microphone') : 'microphone'}
               onClick={handleMute}
             >
               {isAdmin

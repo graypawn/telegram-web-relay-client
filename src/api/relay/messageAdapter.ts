@@ -136,7 +136,7 @@ export function buildRelayTypingStatus(action: any): ApiTypingStatus | undefined
       : undefined;
   }
 
-  return { type: typeByAction[rawType] || 'typing', timestamp: Date.now() } as SimpleTypingStatus;
+  return { type: typeByAction[rawType] || 'typing', timestamp: Date.now() };
 }
 
 function getSenderId(message: any): string | undefined {
@@ -347,7 +347,7 @@ function addReplyInfo(message: ApiMessage, rawMessage: any) {
     type: 'message',
     replyToMsgId: messageId,
     ...(replyChatId && String(replyChatId) !== message.chatId ? { replyToPeerId: String(replyChatId) } : {}),
-  } as ApiMessage['replyInfo'];
+  };
 }
 
 function addReplyMarkup(message: ApiMessage, replyMarkup: any) {
@@ -364,15 +364,15 @@ function buildInlineButton(button: any): ApiKeyboardButton | undefined {
   switch (button.type?._) {
     case 'inlineKeyboardButtonTypeCallback':
     case 'inlineKeyboardButtonTypeCallbackWithPassword':
-      return { type: 'callback', text: button.text, data: String(button.type.data || '') } as ApiKeyboardButton;
+      return { type: 'callback', text: button.text, data: String(button.type.data || '') };
     case 'inlineKeyboardButtonTypeUrl':
-      return { type: 'url', text: button.text, url: String(button.type.url || '') } as ApiKeyboardButton;
+      return { type: 'url', text: button.text, url: String(button.type.url || '') };
     case 'inlineKeyboardButtonTypeWebApp':
-      return { type: 'webView', text: button.text, url: String(button.type.url || '') } as ApiKeyboardButton;
+      return { type: 'webView', text: button.text, url: String(button.type.url || '') };
     case 'inlineKeyboardButtonTypeBuy':
-      return { type: 'buy', text: button.text } as ApiKeyboardButton;
+      return { type: 'buy', text: button.text };
     default:
-      return { type: 'unsupported', text: button.text } as ApiKeyboardButton;
+      return { type: 'unsupported', text: button.text };
   }
 }
 

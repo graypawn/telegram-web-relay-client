@@ -233,6 +233,7 @@
     --border-radius-modal: 2rem;
     --border-radius-toast: 1rem;
     --border-radius-island: 1.5rem;
+    --border-radius-pane: 2rem;
     --shadow-island: 0 1px 4px 0 #0000000D;
     --shadow-pane: 0 1px 5px -1px rgba(0, 0, 0, 0.21);
     --shadow-footer: 0 1px 8px 1px rgba(0, 0, 0, 0.12);
@@ -251,6 +252,7 @@
     --folders-sidebar-width: 5rem;
     --window-controls-width: 0rem;
     --middle-header-height: 3rem;
+    --middle-header-gap: 0.5rem;
     --column-header-height: 4rem;
     --emoji-size: 1.25em;
     --custom-emoji-size: var(--emoji-size);
@@ -271,6 +273,7 @@
     --z-ui-loader-mask: 2000;
     --z-notification: 1700;
     --z-confetti: 1600;
+    --z-round-video-recorder: 1160;
     --z-story-viewer: 1150;
     --z-reaction-interaction-effect: 1100;
     --z-right-column: 900;

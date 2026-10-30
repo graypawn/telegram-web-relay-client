@@ -12,6 +12,7 @@
     "tests",
     "dev",
     "plugins",
+    "scripts",
     "*.config.ts",
     "*.config.js",
     ".github/workflows/*.js",

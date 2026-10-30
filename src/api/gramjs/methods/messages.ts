@@ -12,7 +12,6 @@ import type {
   ApiAttachment,
   ApiChat,
   ApiComposedMessageWithAI,
-  ApiError,
   ApiFormattedText,
   ApiGlobalMessageSearchType,
   ApiInputAiComposeTone,
@@ -21,6 +20,7 @@ import type {
   ApiMessage,
   ApiMessageEntity,
   ApiMessagePoll,
+  ApiMessageReadMetric,
   ApiMessageSearchContext,
   ApiMessageSearchType,
   ApiNewMediaTodo,
@@ -72,6 +72,7 @@ import {
   buildMessageMediaContent, buildMessagePollFromMedia, buildMessageTextContent,
   buildWebPage,
   buildWebPageFromMedia,
+  buildWebPagesFromMedia,
 } from '../apiBuilders/messageContent';
 import {
   buildApiFactCheck,
@@ -1032,6 +1033,7 @@ export async function rescheduleMessage({
 async function uploadMedia(message: ApiMessage, attachment: ApiAttachment, onProgress: ApiOnProgress) {
   const {
     filename, blobUrl, mimeType, quick, voice, audio, previewBlobUrl, shouldSendAsFile, shouldSendAsSpoiler, ttlSeconds,
+    isRoundVideo,
   } = attachment;
 
   const patchedOnProgress: ApiOnProgress = (progress) => {
@@ -1073,6 +1075,7 @@ async function uploadMedia(message: ApiMessage, attachment: ApiAttachment, onPro
             w: width,
             h: height,
             supportsStreaming: true,
+            roundMessage: isRoundVideo || undefined,
           }));
         }
       }
@@ -1089,7 +1092,9 @@ async function uploadMedia(message: ApiMessage, attachment: ApiAttachment, onPro
 
     if (voice) {
       const { duration, waveform } = voice;
-      const { data: inputWaveform } = interpolateArray(waveform, INPUT_WAVEFORM_LENGTH);
+      const inputWaveform = waveform.length === INPUT_WAVEFORM_LENGTH
+        ? waveform
+        : interpolateArray(waveform, INPUT_WAVEFORM_LENGTH).data;
       attributes.push(new GramJs.DocumentAttributeAudio({
         voice: true,
         duration,
@@ -1335,12 +1340,10 @@ export async function reportMessages({
 
     return { result: buildApiReportResult(result), error: undefined };
   } catch (err: any) {
-    const errorMessage = (err as ApiError).message;
-
-    if (errorMessage === MESSAGE_ID_REQUIRED_ERROR) {
+    if (err instanceof RPCError && err.errorMessage === MESSAGE_ID_REQUIRED_ERROR) {
       return {
         result: undefined,
-        error: errorMessage,
+        error: err.errorMessage,
       };
     }
 
@@ -1511,6 +1514,36 @@ export async function fetchMessageViews({
   return {
     viewsInfo,
   };
+}
+
+export async function reportMessageReadMetrics({
+  chat, metrics,
+}: {
+  chat: ApiChat;
+  metrics: ApiMessageReadMetric[];
+}) {
+  const chunks = split(metrics, API_GENERAL_ID_LIMIT);
+  const results = await Promise.all(chunks.map((chunkMetrics) => (
+    invokeRequest(new GramJs.messages.ReportReadMetrics({
+      peer: buildInputPeer(chat.id, chat.accessHash),
+      metrics: chunkMetrics.map(buildInputMessageReadMetric),
+    }))
+  )));
+
+  if (results.some((result) => !result)) return undefined;
+
+  return true;
+}
+
+function buildInputMessageReadMetric(metric: ApiMessageReadMetric) {
+  return new GramJs.InputMessageReadMetric({
+    msgId: metric.messageId,
+    viewId: BigInt(metric.viewId),
+    timeInViewMs: metric.timeInViewMs,
+    activeTimeInViewMs: metric.activeTimeInViewMs,
+    heightToViewportRatioPermille: metric.heightToViewportRatioPermille,
+    seenRangeRatioPermille: metric.seenRangeRatioPermille,
+  });
 }
 
 export async function fetchFactChecks({
@@ -2687,7 +2720,7 @@ function handleLocalMessageUpdate(
 
   let newContent: MediaContent | undefined;
   let poll: ApiMessagePoll | undefined;
-  let webPage: ApiWebPage | undefined;
+  let webPages: ApiWebPage[] | undefined;
   if (messageUpdate instanceof GramJs.UpdateShortSentMessage) {
     if (localMessage.content.text && messageUpdate.entities) {
       newContent = {
@@ -2702,7 +2735,7 @@ function handleLocalMessageUpdate(
         }),
       };
       poll = buildMessagePollFromMedia(messageUpdate.media);
-      webPage = buildWebPageFromMedia(messageUpdate.media);
+      webPages = buildWebPagesFromMedia(messageUpdate.media);
     }
 
     const mtpMessage = buildMessageFromUpdate(messageUpdate.id, localMessage.chatId, messageUpdate);
@@ -2743,7 +2776,7 @@ function handleLocalMessageUpdate(
       localId: localMessage.id,
       message: updatedMessage,
       poll,
-      webPage,
+      webPages,
     });
   }
 

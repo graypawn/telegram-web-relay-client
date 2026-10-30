@@ -22,6 +22,7 @@ import {
   GLOBAL_STATE_CACHE_CUSTOM_EMOJI_LIMIT,
   GLOBAL_STATE_CACHE_DISABLED,
   GLOBAL_STATE_CACHE_USER_LIST_LIMIT,
+  INSTANT_VIEW_FONT_SIZE_ADJUST_DEFAULT,
   IS_SCREEN_LOCKED_CACHE_KEY,
   SAVED_FOLDER_ID,
   SHARED_STATE_CACHE_KEY,
@@ -98,8 +99,8 @@ export function initCache() {
 
   const resetCache = () => {
     isRemovingCache = true;
+    localStorage.removeItem(IS_SCREEN_LOCKED_CACHE_KEY);
     removeGlobalFromCache().finally(() => {
-      localStorage.removeItem(IS_SCREEN_LOCKED_CACHE_KEY);
       isRemovingCache = false;
       if (!isCaching) {
         return;
@@ -200,6 +201,7 @@ async function readCache(initialState: GlobalState): Promise<GlobalState> {
 export function migrateCache(cached: GlobalState, initialState: GlobalState) {
   try {
     unsafeMigrateCache(cached, initialState);
+    clearCachedDraftLocalFlags(cached);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(err);
@@ -323,6 +325,7 @@ function unsafeMigrateCache(cached: GlobalState, initialState: GlobalState) {
       foldersPosition: FOLDERS_POSITION_DEFAULT,
       messageSendKeyCombo: untypedCached.settings.byKey.messageSendKeyCombo,
       messageTextSize: untypedCached.settings.byKey.messageTextSize,
+      instantViewFontSizeAdjust: INSTANT_VIEW_FONT_SIZE_ADJUST_DEFAULT,
       performance: untypedCached.settings.performance,
       theme: untypedCached.settings.byKey.theme,
       timeFormat: untypedCached.settings.byKey.timeFormat,
@@ -332,9 +335,9 @@ function unsafeMigrateCache(cached: GlobalState, initialState: GlobalState) {
       shouldForceHttpTransport: untypedCached.settings.byKey.shouldForceHttpTransport,
       language: untypedCached.settings.byKey.language,
       languages: untypedCached.settings.languages,
-      shouldSkipWebAppCloseConfirmation: untypedCached.settings.byKey.shouldSkipWebAppCloseConfirmation,
-      miniAppsCachedPosition: untypedCached.settings.miniAppsCachedPosition,
-      miniAppsCachedSize: untypedCached.settings.miniAppsCachedSize,
+      shouldSkipBrowserCloseConfirmation: Boolean(untypedCached.settings.byKey.shouldSkipBrowserCloseConfirmation),
+      browserCachedPosition: untypedCached.settings.browserCachedPosition,
+      browserCachedSize: untypedCached.settings.browserCachedSize,
       shouldAllowHttpTransport: untypedCached.settings.byKey.shouldAllowHttpTransport,
       shouldCollectDebugLogs: untypedCached.settings.byKey.shouldCollectDebugLogs,
       shouldDebugExportedSenders: untypedCached.settings.byKey.shouldDebugExportedSenders,
@@ -351,6 +354,10 @@ function unsafeMigrateCache(cached: GlobalState, initialState: GlobalState) {
   }
 
   const cachedSharedSettings = cached.sharedState.settings;
+  if (cachedSharedSettings.instantViewFontSizeAdjust === undefined) {
+    cachedSharedSettings.instantViewFontSizeAdjust = INSTANT_VIEW_FONT_SIZE_ADJUST_DEFAULT;
+  }
+
   if (!cachedSharedSettings.wasAnimationLevelSetManually) {
     cachedSharedSettings.animationLevel = ANIMATION_LEVEL_DEFAULT;
     cachedSharedSettings.performance = INITIAL_PERFORMANCE_STATE_MED;
@@ -401,6 +408,17 @@ function unsafeMigrateCache(cached: GlobalState, initialState: GlobalState) {
   }
 }
 
+function clearCachedDraftLocalFlags(cached: GlobalState) {
+  Object.values(cached.messages.byChatId).forEach(({ threadsById }) => {
+    Object.values(threadsById).forEach(({ localState }) => {
+      const { draft } = localState;
+      if (!draft) return;
+
+      draft.isLocal = undefined;
+    });
+  });
+}
+
 function updateCache(force?: boolean) {
   const global = getGlobal();
   if (isRemovingCache || !isCaching || global.auth.isLoggingOut || (!force && getIsHeavyAnimating())) {
@@ -425,7 +443,7 @@ export function forceUpdateCache(noEncrypt = false) {
   if (hasPasscode) {
     if (!isScreenLocked && !noEncrypt) {
       const serializedGlobal = serializeGlobal(global);
-      void encryptSession(undefined, serializedGlobal);
+      void encryptSession(undefined, serializedGlobal, serializeShared(global.sharedState));
     }
 
     cacheIsScreenLocked(global);
@@ -511,6 +529,10 @@ function reduceSharedState(sharedState: SharedState): SharedState {
 
 export function serializeGlobal<T extends GlobalState>(global: T) {
   return JSON.stringify(reduceGlobal(global));
+}
+
+export function serializeShared(sharedState: SharedState) {
+  return JSON.stringify(reduceSharedState(sharedState));
 }
 
 function reduceStickers<T extends GlobalState>(global: T): GlobalState['stickers'] {

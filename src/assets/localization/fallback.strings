@@ -97,6 +97,7 @@
 "PageContentEmbed" = "Embedded content";
 "ConversationDefaultRestrictedMedia" = "Sending media isn't allowed in this group.";
 "AccDescrVoiceMessage" = "Record voice message";
+"AccDescrVideoMessage" = "Record video message";
 "BotSettings" = "Settings";
 "Privacy" = "Privacy Settings";
 "BotHelp" = "Help";
@@ -331,6 +332,7 @@
 "ReportPeerReport" = "Report";
 "ReportReasonDescription" = "Description";
 "ReportButton" = "Report";
+"ReportChatMessagesRequired" = "Select messages to include in your report.";
 "StickersRemoveFromFavorites" = "Remove from Favorites";
 "StickersAddToFavorites" = "Add to Favorites";
 "ViewPackPreview" = "View Sticker Set";
@@ -659,6 +661,8 @@
 "MediaviewProfilePhoto" = "Profile Photo";
 "AccActionPlay" = "Play";
 "AttachAudio" = "Voice Message";
+"AttachVideoMessage" = "Video Message";
+"PlayOnceVideoMessageTooltip" = "This video message can only be played once.";
 "NewContactAdd" = "Add contact";
 "NewContactBlock" = "Block user";
 "ReportSpamAndLeave" = "Report spam and leave";
@@ -685,6 +689,9 @@
 "SlowModePlaceholder" = "Next message in {timer}";
 "SlowModeHint" = "Slow Mode is active. You can send your next message in {time}.";
 "NoVoiceMessagesAllowed" = "**{user}** doesn't accept voice messages.";
+"VideoMessagePermissionDenied" = "To record video messages, allow access to your camera and microphone.";
+"VideoMessageRecordError" = "Couldn't record a video message. Please check your camera and try again.";
+"VideoMessagesRestrictedByPrivacy" = "**{user}** doesn't accept video messages.";
 "SendMessageAsTitle" = "Send message as...";
 "Message" = "Message";
 "RecentStickers" = "Recently Used";
@@ -708,6 +715,18 @@
 "PollAllowVoteChangesDescription" = "Voters can change their vote";
 "PollRandomOrder" = "Shuffle Options";
 "PollRandomOrderDescription" = "Answers appear in random order for each voter";
+"PollRestrictToSubscribers" = "Restrict to Subscribers";
+"PollRestrictToSubscribersDescription" = "Only subscribers who joined 24+ hours ago can vote.";
+"PollLimitByCountry" = "Limit by Country";
+"PollLimitByCountryDescription" = "Only users from selected countries can vote.";
+"PollSubscriberRestriction" = "Only subscribers of {channel} can vote.";
+"PollCountryRestriction" = "Only users from **{countries}** can vote.";
+"PollAllowedCountries" = "Allowed Countries";
+"PollCountriesCount_one" = "{count} country";
+"PollCountriesCount_other" = "{count} countries";
+"PollChooseCountry" = "Please choose at least one country.";
+"PollCountriesLimit_one" = "You can choose up to {count} country.";
+"PollCountriesLimit_other" = "You can choose up to {count} countries.";
 "PollLimitedDuration" = "Limited Duration";
 "PollLimitedDurationDescription" = "Automatically close the poll at a set time";
 "PollDuration" = "Duration";
@@ -868,6 +887,7 @@
 "Vote" = "Vote";
 "VoteCount_one" = "{count} vote";
 "VoteCount_other" = "{count} votes";
+"PollResultsAnswerTitle" = "{answer} - {percent}%";
 "TimeIn" = "in {time}";
 "MessageRecommendedLabel" = "recommended";
 "SponsoredMessageAd" = "Ad";
@@ -1142,6 +1162,9 @@
 "SaveLink" = "Save Link";
 "CreateLink" = "Create Link";
 "LinkCopied" = "Link copied to clipboard.";
+"QrCodeTitle" = "QR Code";
+"QrCodeCopy" = "Copy QR";
+"QrCodeCopied" = "QR code copied to clipboard.";
 "PeopleJoined_one" = "{count} person joined";
 "PeopleJoined_other" = "{count} people joined";
 "NoOneJoined" = "No one joined";
@@ -1499,6 +1522,13 @@
 "ComposerStoryPlaceholderLocked" = "Replies restricted";
 "ComposerPlaceholderNoText" = "Text not allowed";
 "AriaComposerCancelVoice" = "Cancel voice recording";
+"VoiceRecordMicError" = "Allow access to your microphone to record voice messages";
+"AriaComposerPauseVoice" = "Pause voice recording";
+"AriaComposerResumeVoice" = "Resume voice recording";
+"AriaComposerPauseVideo" = "Pause video recording";
+"AriaComposerResumeVideo" = "Resume video recording";
+"AriaComposerPlayVoice" = "Play voice recording";
+"AriaComposerPausePlayback" = "Pause playback";
 "PreviewForwardedMessage_one" = "{count} forwarded message";
 "PreviewForwardedMessage_other" = "{count} forwarded messages";
 "PreviewEditMessage" = "Edit message";
@@ -1811,8 +1841,8 @@
 "StarsReactionLinkText" = "Terms of Service";
 "StarsReactionLink" = "https://telegram.org/tos/stars";
 "AriaMiniApp" = "{bot} Mini App";
-"MiniAppsMoreTabs_one" = "{botName} & {count} Other";
-"MiniAppsMoreTabs_other" = "{botName} & {count} Others";
+"BrowserMoreTabs_one" = "{title} & {count} Other";
+"BrowserMoreTabs_other" = "{title} & {count} Others";
 "PrizeCredits2_one" = "Your prize is {count} Star.";
 "PrizeCredits2_other" = "Your prize is {count} Stars.";
 "SentGift" = "Sent Gift";
@@ -1828,8 +1858,8 @@
 "PopularApps" = "Popular Apps";
 "SearchApps" = "Search Apps";
 "Apps" = "Apps";
-"AreYouSureCloseMiniApps" = "Are you sure you want to close all Mini Apps?";
-"CloseMiniApps" = "Close Mini Apps";
+"AreYouSureCloseBrowserTabs" = "Are you sure you want to close all browser tabs?";
+"CloseBrowserTabs" = "Close Browser Tabs";
 "DoNotAskAgain" = "Don't ask again";
 "PaymentInfoDone" = "Proceed to checkout";
 "DeleteMyAccount" = "Delete my account";

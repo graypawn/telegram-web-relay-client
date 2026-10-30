@@ -30,9 +30,13 @@ async function readMetadata() {
 
 async function fetchLatestUpstream(metadata) {
   const revision = process.env.UPSTREAM_SYNC_LATEST_SHA
-    || await fetchJson(`https://api.github.com/repos/${metadata.repository}/commits/${metadata.branch}`).then((commit) => commit.sha);
+    || await fetchJson(
+      `https://api.github.com/repos/${metadata.repository}/commits/${metadata.branch}`,
+    ).then((commit) => commit.sha);
   const version = process.env.UPSTREAM_SYNC_LATEST_VERSION
-    || await fetchJson(`https://raw.githubusercontent.com/${metadata.repository}/${revision}/package.json`).then((packageJson) => packageJson.version);
+    || await fetchJson(
+      `https://raw.githubusercontent.com/${metadata.repository}/${revision}/package.json`,
+    ).then((packageJson) => packageJson.version);
 
   if (!revision || !version) {
     throw new Error('Could not determine the latest upstream revision and version');
@@ -63,7 +67,8 @@ async function fetchJson(url) {
 }
 
 function buildReport(metadata, latest, isUpdateAvailable) {
-  const comparisonUrl = `https://github.com/${metadata.repository}/compare/${metadata.integrated.revision}...${latest.revision}`;
+  const comparisonUrl = `https://github.com/${metadata.repository}/compare/${metadata.integrated.revision}`
+    + `...${latest.revision}`;
   const status = isUpdateAvailable ? 'Update available' : 'Up to date';
 
   return [
